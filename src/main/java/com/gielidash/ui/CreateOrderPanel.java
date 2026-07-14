@@ -33,12 +33,15 @@ import net.runelite.http.api.item.ItemPrice;
  */
 class CreateOrderPanel extends JPanel
 {
-	private static final int MAX_RESULTS = 8;
+	private static final int MAX_RESULTS = 4;
+	private static final int SEARCH_DEBOUNCE_MS = 250;
 
 	private final GieliDashPlugin plugin;
 	private final ItemManager itemManager;
 
 	private final List<OrderItem> basket = new ArrayList<>();
+	/** GE prices captured from search results - ItemManager lookups assert the client thread. */
+	private final java.util.Map<Integer, Long> priceCache = new java.util.HashMap<>();
 	private final JPanel resultsList = new JPanel(new DynamicGridLayout(0, 1, 0, 2));
 	private final JPanel basketList = new JPanel(new DynamicGridLayout(0, 1, 0, 2));
 	private final IconTextField searchField = new IconTextField();
@@ -61,8 +64,32 @@ class CreateOrderPanel extends JPanel
 		searchField.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
 		searchField.addActionListener(e -> doSearch());
 		searchField.addClearListener(this::clearResults);
+
+		// Live results while typing (debounced) - top matches appear without Enter
+		javax.swing.Timer debounce = new javax.swing.Timer(SEARCH_DEBOUNCE_MS, e -> showLiveResults());
+		debounce.setRepeats(false);
+		searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener()
+		{
+			@Override
+			public void insertUpdate(javax.swing.event.DocumentEvent e)
+			{
+				debounce.restart();
+			}
+
+			@Override
+			public void removeUpdate(javax.swing.event.DocumentEvent e)
+			{
+				debounce.restart();
+			}
+
+			@Override
+			public void changedUpdate(javax.swing.event.DocumentEvent e)
+			{
+				debounce.restart();
+			}
+		});
 		add(searchField);
-		add(smallLabel("Search an item, press Enter"));
+		add(smallLabel("Search an item, click a match"));
 
 		resultsList.setOpaque(false);
 		add(resultsList);
@@ -117,7 +144,26 @@ class CreateOrderPanel extends JPanel
 		return label;
 	}
 
-	/** Enter in the search box: exact match adds directly, otherwise show a picker. */
+	/** Typing (debounced): show the top matches live for one-click adding. */
+	private void showLiveResults()
+	{
+		String query = searchField.getText();
+		if (query == null || query.trim().length() < 2)
+		{
+			clearResults();
+			return;
+		}
+		List<ItemPrice> results = itemManager.search(query.trim());
+		resultsList.removeAll();
+		for (ItemPrice result : results.subList(0, Math.min(MAX_RESULTS, results.size())))
+		{
+			resultsList.add(buildResultRow(result));
+		}
+		resultsList.revalidate();
+		resultsList.repaint();
+	}
+
+	/** Enter: add the exact-name match; otherwise the live list is there to click. */
 	private void doSearch()
 	{
 		String query = searchField.getText();
@@ -140,16 +186,7 @@ class CreateOrderPanel extends JPanel
 			addToBasket(exact != null ? exact : results.get(0));
 			return;
 		}
-
-		// Ambiguous ("swordfish" -> Raw swordfish, Swordfish, ...): let the user pick
-		resultsList.removeAll();
-		for (ItemPrice result : results.subList(0, Math.min(MAX_RESULTS, results.size())))
-		{
-			resultsList.add(buildResultRow(result));
-		}
 		setStatus("Pick the item you mean", false);
-		resultsList.revalidate();
-		resultsList.repaint();
 	}
 
 	private JPanel buildResultRow(ItemPrice result)
@@ -196,6 +233,7 @@ class CreateOrderPanel extends JPanel
 
 	private void addToBasket(ItemPrice item)
 	{
+		priceCache.put(item.getId(), (long) item.getPrice());
 		basket.add(new OrderItem(item.getId(), 1, item.getName()));
 		searchField.setText("");
 		clearResults();
@@ -218,7 +256,7 @@ class CreateOrderPanel extends JPanel
 		{
 			final int index = i;
 			OrderItem item = basket.get(i);
-			estimate += (long) itemManager.getItemPrice(item.getId()) * item.getQty();
+			estimate += priceCache.getOrDefault(item.getId(), 0L) * item.getQty();
 
 			JPanel row = new JPanel(new BorderLayout());
 			row.setOpaque(false);
@@ -275,6 +313,11 @@ class CreateOrderPanel extends JPanel
 
 	private void submitOrder()
 	{
+		if (!plugin.isLoggedIn())
+		{
+			setStatus("Log in first - the order is posted at your location", true);
+			return;
+		}
 		if (basket.isEmpty())
 		{
 			setStatus("Add at least one item first", true);

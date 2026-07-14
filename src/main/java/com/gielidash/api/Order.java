@@ -62,6 +62,9 @@ public class Order
 	@SerializedName("dasher_rating_count")
 	private Integer dasherRatingCount;
 
+	/** GE cost of the items, computed client-side ON THE CLIENT THREAD during polls. */
+	private transient Long frontCostGp;
+
 	public boolean isTerminal()
 	{
 		return "delivered".equals(status) || "failed".equals(status) || "cancelled".equals(status);

@@ -62,17 +62,17 @@ class OrderBox extends JPanel
 			body.add(Box.createVerticalStrut(2));
 		}
 
-		// GE cost estimate so Dashers know what they'll front
-		long frontCost = 0;
-		for (OrderItem item : order.getItems())
+		// GE cost estimate so Dashers know what they'll front. Computed on the
+		// client thread during the poll (ItemManager price lookups assert it) -
+		// never call itemManager.getItemPrice from this EDT constructor.
+		if (order.getFrontCostGp() != null)
 		{
-			frontCost += (long) itemManager.getItemPrice(item.getId()) * item.getQty();
+			JLabel cost = new JLabel("Front ~" + QuantityFormatter.quantityToStackSize(order.getFrontCostGp())
+				+ " gp · earn " + QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp");
+			cost.setFont(FontManager.getRunescapeSmallFont());
+			cost.setForeground(ColorScheme.GRAND_EXCHANGE_ALCH);
+			body.add(cost);
 		}
-		JLabel cost = new JLabel("Front ~" + QuantityFormatter.quantityToStackSize(frontCost)
-			+ " gp · earn " + QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp");
-		cost.setFont(FontManager.getRunescapeSmallFont());
-		cost.setForeground(ColorScheme.GRAND_EXCHANGE_ALCH);
-		body.add(cost);
 
 		String check = order.getRequesterVerified() != null && order.getRequesterVerified() == 1 ? "✓ " : "";
 		JLabel requester = new JLabel(check + order.getRequesterName() + "  ·  Cb " + order.getRequesterCombat()

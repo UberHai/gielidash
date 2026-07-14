@@ -103,6 +103,10 @@ public class GieliDashPlugin extends Plugin
 	private volatile WorldPoint lastLocation;
 	private volatile int lastWorld;
 
+	/** For panel-side guards (EDT can't touch Client). */
+	@Getter
+	private volatile boolean loggedIn;
+
 	private WorldMapPoint mapPoint;
 	private WorldMapPoint counterpartPoint;
 	private boolean routeShown;
@@ -148,7 +152,8 @@ public class GieliDashPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged gameStateChanged)
 	{
-		if (gameStateChanged.getGameState() == GameState.LOGGED_IN && config.enableSync())
+		loggedIn = gameStateChanged.getGameState() == GameState.LOGGED_IN;
+		if (loggedIn && config.enableSync())
 		{
 			sessionService.register();
 		}
@@ -201,15 +206,29 @@ public class GieliDashPlugin extends Plugin
 			updateActiveOrder(next);
 			updateCounterpartPin(next);
 
-			SwingUtilities.invokeLater(() ->
+			// Price lookups assert the client thread - compute front costs there,
+			// THEN hand everything to Swing
+			clientThread.invokeLater(() ->
 			{
-				if (panel != null)
+				for (Order order : open)
 				{
-					panel.setOrders(open);
-					panel.setMyOrders(mine);
-					panel.setPosts(posts);
-					panel.setSyncStatus(open.size() + " open");
+					long cost = 0;
+					for (OrderItem item : order.getItems())
+					{
+						cost += (long) itemManager.getItemPrice(item.getId()) * item.getQty();
+					}
+					order.setFrontCostGp(cost);
 				}
+				SwingUtilities.invokeLater(() ->
+				{
+					if (panel != null)
+					{
+						panel.setOrders(open);
+						panel.setMyOrders(mine);
+						panel.setPosts(posts);
+						panel.setSyncStatus(open.size() + " open");
+					}
+				});
 			});
 		}
 		catch (ApiException e)
