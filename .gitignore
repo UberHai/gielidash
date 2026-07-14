@@ -28,3 +28,6 @@ nbproject/
 # --- OS ---
 .DS_Store
 Thumbs.db
+
+# Browser-tooling artifacts
+.playwright-mcp/

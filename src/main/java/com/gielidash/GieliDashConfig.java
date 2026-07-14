@@ -21,4 +21,15 @@ public interface GieliDashConfig extends Config
 	{
 		return false;
 	}
+
+	@ConfigItem(
+		keyName = "baseUrlOverride",
+		name = "Server URL override",
+		description = "Point the plugin at a self-hosted GieliDash server. Leave blank for the official one.",
+		position = 1
+	)
+	default String baseUrlOverride()
+	{
+		return "";
+	}
 }
