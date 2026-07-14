@@ -8,26 +8,36 @@ import com.gielidash.ui.GieliDashPanel;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
+import javax.swing.SwingUtilities;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.PluginMessage;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.task.Schedule;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.ui.overlay.worldmap.WorldMapPoint;
+import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 import net.runelite.client.util.ImageUtil;
-import javax.swing.SwingUtilities;
 
 @Slf4j
 @PluginDescriptor(
@@ -37,6 +47,8 @@ import javax.swing.SwingUtilities;
 )
 public class GieliDashPlugin extends Plugin
 {
+	private static final String SHORTEST_PATH_NAMESPACE = "shortestpath";
+
 	@Inject
 	private Client client;
 
@@ -61,22 +73,49 @@ public class GieliDashPlugin extends Plugin
 	@Inject
 	private SessionService sessionService;
 
+	@Inject
+	private OverlayManager overlayManager;
+
+	@Inject
+	private DeliveryOverlay deliveryOverlay;
+
+	@Inject
+	private WorldMapPointManager worldMapPointManager;
+
+	@Inject
+	private EventBus eventBus;
+
 	private GieliDashPanel panel;
 	private NavigationButton navButton;
+	private BufferedImage pinIcon;
+
+	/** The one order currently guiding overlay/pin/route. Read from any thread. */
+	@Getter
+	@Nullable
+	private volatile Order activeOrder;
+
+	/** Last known player position, cached on the client thread each tick. */
+	@Nullable
+	private volatile WorldPoint lastLocation;
+	private volatile int lastWorld;
+
+	private WorldMapPoint mapPoint;
+	private boolean routeShown;
 
 	@Override
 	protected void startUp() throws Exception
 	{
 		panel = new GieliDashPanel(this, itemManager);
+		pinIcon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 
-		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 			.tooltip("GieliDash")
-			.icon(icon)
+			.icon(pinIcon)
 			.priority(6)
 			.panel(panel)
 			.build();
 		clientToolbar.addNavigation(navButton);
+		overlayManager.add(deliveryOverlay);
 
 		log.debug("GieliDash started");
 	}
@@ -85,6 +124,9 @@ public class GieliDashPlugin extends Plugin
 	protected void shutDown() throws Exception
 	{
 		clientToolbar.removeNavigation(navButton);
+		overlayManager.remove(deliveryOverlay);
+		clearGuidance();
+		activeOrder = null;
 		navButton = null;
 		panel = null;
 		log.debug("GieliDash stopped");
@@ -99,7 +141,17 @@ public class GieliDashPlugin extends Plugin
 		}
 	}
 
-	/** Poll the open order book while sync is on. */
+	@Subscribe
+	public void onGameTick(GameTick tick)
+	{
+		if (client.getLocalPlayer() != null)
+		{
+			lastLocation = client.getLocalPlayer().getWorldLocation();
+			lastWorld = client.getWorld();
+		}
+	}
+
+	/** Poll the order book + my orders while sync is on. */
 	@Schedule(period = 15, unit = ChronoUnit.SECONDS, asynchronous = true)
 	public void pollOrders()
 	{
@@ -109,19 +161,24 @@ public class GieliDashPlugin extends Plugin
 		}
 		if (!api.hasToken())
 		{
-			// Not registered yet - happens before first login with sync enabled
 			SwingUtilities.invokeLater(() -> panel.setSyncStatus("log in to register"));
 			return;
 		}
 		try
 		{
-			List<Order> orders = api.getOpenOrders();
+			List<Order> open = api.getOpenOrders();
+			List<Order> mine = api.getMyOrders();
+
+			Order next = mine.stream().filter(Order::isActive).findFirst().orElse(null);
+			updateActiveOrder(next);
+
 			SwingUtilities.invokeLater(() ->
 			{
 				if (panel != null)
 				{
-					panel.setOrders(orders);
-					panel.setSyncStatus(orders.size() + " open");
+					panel.setOrders(open);
+					panel.setMyOrders(mine);
+					panel.setSyncStatus(open.size() + " open");
 				}
 			});
 		}
@@ -138,19 +195,56 @@ public class GieliDashPlugin extends Plugin
 		}
 	}
 
+	/** Heartbeat my position to the server while I'm on an active order. */
+	@Schedule(period = 5, unit = ChronoUnit.SECONDS, asynchronous = true)
+	public void sendLocationHeartbeat()
+	{
+		Order order = activeOrder;
+		WorldPoint location = lastLocation;
+		if (order == null || location == null || !config.enableSync() || !api.hasToken())
+		{
+			return;
+		}
+		try
+		{
+			api.sendLocation(order.getId(), location.getX(), location.getY(),
+				location.getPlane(), lastWorld);
+		}
+		catch (ApiException e)
+		{
+			log.debug("Heartbeat failed: {}", e.getMessage());
+		}
+	}
+
 	/** Called from the panel (EDT). Claims an order off-thread, then refreshes. */
 	public void acceptOrder(Order order)
+	{
+		runApi("accept", () -> api.acceptOrder(order.getId()));
+	}
+
+	/** Called from the Mine tab (EDT). */
+	public void updateOrderStatus(Order order, String newStatus)
+	{
+		runApi("status " + newStatus, () -> api.updateStatus(order.getId(), newStatus));
+	}
+
+	/** Called from the Mine tab (EDT). */
+	public void cancelOrder(Order order)
+	{
+		runApi("cancel", () -> api.cancelOrder(order.getId(), "cancelled_from_panel"));
+	}
+
+	private void runApi(String what, Runnable call)
 	{
 		executor.execute(() ->
 		{
 			try
 			{
-				api.acceptOrder(order.getId());
-				log.debug("Accepted order {}", order.getId());
+				call.run();
 			}
 			catch (ApiException e)
 			{
-				log.warn("Accept failed for order {}: {}", order.getId(), e.getMessage());
+				log.warn("GieliDash {} failed: {}", what, e.getMessage());
 			}
 			pollOrders();
 		});
@@ -188,6 +282,66 @@ public class GieliDashPlugin extends Plugin
 				}
 			});
 		});
+	}
+
+	/** Reconcile overlay/map-pin/route state with the current active order. Any thread. */
+	private void updateActiveOrder(@Nullable Order next)
+	{
+		Order previous = activeOrder;
+		activeOrder = next;
+
+		boolean changed = (previous == null) != (next == null)
+			|| (previous != null && next != null
+				&& (previous.getId() != next.getId() || !previous.getStatus().equals(next.getStatus())));
+		if (!changed)
+		{
+			return;
+		}
+
+		clientThread.invokeLater(() ->
+		{
+			clearGuidance();
+			if (next == null)
+			{
+				return;
+			}
+
+			WorldPoint dest = new WorldPoint(next.getDestX(), next.getDestY(), next.getDestPlane());
+
+			mapPoint = WorldMapPoint.builder()
+				.worldPoint(dest)
+				.image(pinIcon)
+				.tooltip("GieliDash delivery #" + next.getId())
+				.jumpOnClick(true)
+				.snapToEdge(true)
+				.name("GieliDash")
+				.build();
+			worldMapPointManager.add(mapPoint);
+
+			// Only route the Dasher - the requester is being delivered to
+			if (config.useShortestPath() && "dasher".equals(next.getRole()))
+			{
+				Map<String, Object> data = new HashMap<>();
+				data.put("target", dest);
+				eventBus.post(new PluginMessage(SHORTEST_PATH_NAMESPACE, "path", data));
+				routeShown = true;
+			}
+		});
+	}
+
+	/** Client thread only. */
+	private void clearGuidance()
+	{
+		if (mapPoint != null)
+		{
+			worldMapPointManager.remove(mapPoint);
+			mapPoint = null;
+		}
+		if (routeShown)
+		{
+			eventBus.post(new PluginMessage(SHORTEST_PATH_NAMESPACE, "clear"));
+			routeShown = false;
+		}
 	}
 
 	@Provides

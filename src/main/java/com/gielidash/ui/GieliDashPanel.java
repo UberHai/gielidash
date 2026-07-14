@@ -20,7 +20,9 @@ import net.runelite.client.ui.components.materialtabs.MaterialTabGroup;
 public class GieliDashPanel extends PluginPanel
 {
 	private final JPanel ordersList = new JPanel();
+	private final JPanel mineList = new JPanel();
 	private final PluginErrorPanel emptyOrders = new PluginErrorPanel();
+	private final PluginErrorPanel emptyMine = new PluginErrorPanel();
 	private final JLabel syncStatus = new JLabel(" ");
 	private final GieliDashPlugin plugin;
 	private final ItemManager itemManager;
@@ -49,8 +51,10 @@ public class GieliDashPanel extends PluginPanel
 		MaterialTabGroup tabGroup = new MaterialTabGroup(display);
 
 		MaterialTab ordersTab = new MaterialTab("Orders", tabGroup, buildOrdersTab());
+		MaterialTab mineTab = new MaterialTab("Mine", tabGroup, buildMineTab());
 		MaterialTab createTab = new MaterialTab("Create", tabGroup, new CreateOrderPanel(plugin, itemManager));
 		tabGroup.addTab(ordersTab);
+		tabGroup.addTab(mineTab);
 		tabGroup.addTab(createTab);
 		tabGroup.select(ordersTab);
 
@@ -73,6 +77,44 @@ public class GieliDashPanel extends PluginPanel
 
 		tab.add(ordersList, BorderLayout.NORTH);
 		return tab;
+	}
+
+	private JPanel buildMineTab()
+	{
+		JPanel tab = new JPanel(new BorderLayout());
+		tab.setOpaque(false);
+
+		mineList.setLayout(new BoxLayout(mineList, BoxLayout.Y_AXIS));
+		mineList.setOpaque(false);
+
+		emptyMine.setContent("Nothing yet",
+			"Orders you post and deliveries you accept will show up here.");
+		mineList.add(emptyMine);
+
+		tab.add(mineList, BorderLayout.NORTH);
+		return tab;
+	}
+
+	/** Swing EDT only. */
+	public void setMyOrders(List<Order> orders)
+	{
+		mineList.removeAll();
+		if (orders.isEmpty())
+		{
+			mineList.add(emptyMine);
+		}
+		else
+		{
+			for (Order order : orders)
+			{
+				MyOrderBox box = new MyOrderBox(order, plugin);
+				box.setAlignmentX(LEFT_ALIGNMENT);
+				mineList.add(box);
+				mineList.add(Box.createVerticalStrut(6));
+			}
+		}
+		mineList.revalidate();
+		mineList.repaint();
 	}
 
 	/** Swing EDT only. */

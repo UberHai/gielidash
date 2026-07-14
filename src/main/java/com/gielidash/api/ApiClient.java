@@ -78,6 +78,18 @@ public class ApiClient
 		return get("/orders/" + id, OrderResponse.class).order;
 	}
 
+	public List<Order> getMyOrders()
+	{
+		return get("/orders/mine", OrdersResponse.class).orders;
+	}
+
+	public void sendLocation(int orderId, int x, int y, int plane, int world)
+	{
+		post("/location", Map.of(
+			"orderId", orderId, "x", x, "y", y, "plane", plane, "world", world
+		), SimpleResponse.class, true);
+	}
+
 	public void acceptOrder(int id)
 	{
 		post("/orders/" + id + "/accept", Map.of(), SimpleResponse.class, true);

@@ -28,4 +28,13 @@ public class Order
 	private String requesterName;
 	@SerializedName("requester_combat")
 	private int requesterCombat;
+	@SerializedName("dasher_name")
+	private String dasherName;
+	/** "requester" or "dasher" - only present on /orders/mine responses. */
+	private String role;
+
+	public boolean isActive()
+	{
+		return "claimed".equals(status) || "in_transit".equals(status) || "arrived".equals(status);
+	}
 }

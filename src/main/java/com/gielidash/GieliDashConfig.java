@@ -23,10 +23,32 @@ public interface GieliDashConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "showOverlay",
+		name = "Delivery overlay",
+		description = "Show the active delivery (status, goods, fee, distance, ETA) as an on-screen overlay.",
+		position = 1
+	)
+	default boolean showOverlay()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "useShortestPath",
+		name = "Route via Shortest Path",
+		description = "Draw the route to the delivery destination using the Shortest Path plugin, if it is installed.",
+		position = 2
+	)
+	default boolean useShortestPath()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 		keyName = "baseUrlOverride",
 		name = "Server URL override",
 		description = "Point the plugin at a self-hosted GieliDash server. Leave blank for the official one.",
-		position = 1
+		position = 3
 	)
 	default String baseUrlOverride()
 	{
