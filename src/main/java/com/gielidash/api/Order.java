@@ -32,6 +32,22 @@ public class Order
 	private String dasherName;
 	/** "requester" or "dasher" - only present on /orders/mine responses. */
 	private String role;
+	/** Stars I already gave on this order - /orders/mine only, null if unrated. */
+	@SerializedName("my_rating")
+	private Integer myRating;
+	@SerializedName("requester_stars")
+	private Double requesterStars;
+	@SerializedName("requester_rating_count")
+	private Integer requesterRatingCount;
+	@SerializedName("dasher_stars")
+	private Double dasherStars;
+	@SerializedName("dasher_rating_count")
+	private Integer dasherRatingCount;
+
+	public boolean isTerminal()
+	{
+		return "delivered".equals(status) || "failed".equals(status) || "cancelled".equals(status);
+	}
 
 	public boolean isActive()
 	{

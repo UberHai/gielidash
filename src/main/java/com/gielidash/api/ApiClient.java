@@ -90,6 +90,39 @@ public class ApiClient
 		), SimpleResponse.class, true);
 	}
 
+	public void submitRating(int orderId, int stars, @Nullable String comment)
+	{
+		post("/ratings", Map.of(
+			"orderId", orderId, "stars", stars, "comment", comment == null ? "" : comment
+		), SimpleResponse.class, true);
+	}
+
+	public List<DasherPost> getPosts()
+	{
+		return get("/posts", PostsResponse.class).posts;
+	}
+
+	public void createPost(String message, @Nullable String feeNote)
+	{
+		post("/posts", Map.of(
+			"message", message, "feeNote", feeNote == null ? "" : feeNote
+		), SimpleResponse.class, true);
+	}
+
+	public void deactivatePost()
+	{
+		post("/posts/deactivate", Map.of(), SimpleResponse.class, true);
+	}
+
+	public void submitTradeReport(int orderId, String counterpartName, List<OrderItem> items,
+		long gp, int world, int x, int y, int plane)
+	{
+		post("/trade-reports", Map.of(
+			"orderId", orderId, "counterpartName", counterpartName, "items", items,
+			"gp", gp, "world", world, "x", x, "y", y, "plane", plane
+		), SimpleResponse.class, true);
+	}
+
 	public void acceptOrder(int id)
 	{
 		post("/orders/" + id + "/accept", Map.of(), SimpleResponse.class, true);
@@ -194,6 +227,11 @@ public class ApiClient
 	private static class OrdersResponse extends SimpleResponse
 	{
 		List<Order> orders;
+	}
+
+	private static class PostsResponse extends SimpleResponse
+	{
+		List<DasherPost> posts;
 	}
 
 	private static class OrderResponse extends SimpleResponse

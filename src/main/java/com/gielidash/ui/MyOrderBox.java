@@ -61,14 +61,25 @@ class MyOrderBox extends JPanel
 		items.setForeground(ColorScheme.TEXT_COLOR);
 		body.add(items);
 
+		String counterpartStars = isDasher
+			? Stars.format(order.getRequesterStars(), order.getRequesterRatingCount())
+			: Stars.format(order.getDasherStars(), order.getDasherRatingCount());
 		String counterpart = isDasher
-			? "for " + order.getRequesterName()
-			: (order.getDasherName() != null ? "dasher: " + order.getDasherName() : "waiting for a dasher");
+			? "for " + order.getRequesterName() + " " + counterpartStars
+			: (order.getDasherName() != null
+				? "dasher: " + order.getDasherName() + " " + counterpartStars
+				: "waiting for a dasher");
 		JLabel who = new JLabel(counterpart + "  ·  W" + order.getWorld()
 			+ "  ·  " + QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp");
 		who.setFont(FontManager.getRunescapeSmallFont());
 		who.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		body.add(who);
+
+		// Rate the counterpart once the order is finished (delivered/failed/cancelled with a dasher)
+		if (isTerminal(order.getStatus()) && order.getDasherName() != null)
+		{
+			body.add(buildRatingRow(order, plugin));
+		}
 		add(body, BorderLayout.CENTER);
 
 		// Action row for non-terminal orders
@@ -92,6 +103,42 @@ class MyOrderBox extends JPanel
 		{
 			add(actions, BorderLayout.SOUTH);
 		}
+	}
+
+	private static JPanel buildRatingRow(Order order, GieliDashPlugin plugin)
+	{
+		JPanel row = new JPanel();
+		row.setOpaque(false);
+		row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+
+		if (order.getMyRating() != null)
+		{
+			JLabel done = new JLabel("You rated " + "★".repeat(order.getMyRating()));
+			done.setFont(FontManager.getRunescapeSmallFont());
+			done.setForeground(ColorScheme.BRAND_ORANGE);
+			row.add(done);
+			return row;
+		}
+
+		JLabel prompt = new JLabel("Rate: ");
+		prompt.setFont(FontManager.getRunescapeSmallFont());
+		prompt.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		row.add(prompt);
+		for (int stars = 1; stars <= 5; stars++)
+		{
+			final int value = stars;
+			JButton star = new JButton(String.valueOf(stars));
+			star.setFont(FontManager.getRunescapeSmallFont());
+			star.setFocusPainted(false);
+			star.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
+			star.setForeground(ColorScheme.BRAND_ORANGE);
+			star.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
+			star.setToolTipText(stars + (stars == 1 ? " star" : " stars"));
+			star.addActionListener(e -> plugin.rateOrder(order, value));
+			row.add(star);
+			row.add(Box.createHorizontalStrut(3));
+		}
+		return row;
 	}
 
 	private static String nextAction(String status, boolean isDasher)

@@ -1,6 +1,7 @@
 package com.gielidash.ui;
 
 import com.gielidash.GieliDashPlugin;
+import com.gielidash.api.DasherPost;
 import com.gielidash.api.Order;
 import java.awt.BorderLayout;
 import java.util.List;
@@ -26,6 +27,7 @@ public class GieliDashPanel extends PluginPanel
 	private final JLabel syncStatus = new JLabel(" ");
 	private final GieliDashPlugin plugin;
 	private final ItemManager itemManager;
+	private PostsPanel postsPanel;
 
 	public GieliDashPanel(GieliDashPlugin plugin, ItemManager itemManager)
 	{
@@ -53,9 +55,12 @@ public class GieliDashPanel extends PluginPanel
 		MaterialTab ordersTab = new MaterialTab("Orders", tabGroup, buildOrdersTab());
 		MaterialTab mineTab = new MaterialTab("Mine", tabGroup, buildMineTab());
 		MaterialTab createTab = new MaterialTab("Create", tabGroup, new CreateOrderPanel(plugin, itemManager));
+		postsPanel = new PostsPanel(plugin);
+		MaterialTab postsTab = new MaterialTab("Posts", tabGroup, postsPanel);
 		tabGroup.addTab(ordersTab);
 		tabGroup.addTab(mineTab);
 		tabGroup.addTab(createTab);
+		tabGroup.addTab(postsTab);
 		tabGroup.select(ordersTab);
 
 		add(tabGroup);
@@ -137,6 +142,12 @@ public class GieliDashPanel extends PluginPanel
 		}
 		ordersList.revalidate();
 		ordersList.repaint();
+	}
+
+	/** Swing EDT only. */
+	public void setPosts(List<DasherPost> posts)
+	{
+		postsPanel.setPosts(posts);
 	}
 
 	/** Swing EDT only. */

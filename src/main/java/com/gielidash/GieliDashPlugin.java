@@ -74,6 +74,9 @@ public class GieliDashPlugin extends Plugin
 	private SessionService sessionService;
 
 	@Inject
+	private TradeObserver tradeObserver;
+
+	@Inject
 	private OverlayManager overlayManager;
 
 	@Inject
@@ -116,6 +119,7 @@ public class GieliDashPlugin extends Plugin
 			.build();
 		clientToolbar.addNavigation(navButton);
 		overlayManager.add(deliveryOverlay);
+		eventBus.register(tradeObserver);
 
 		log.debug("GieliDash started");
 	}
@@ -125,6 +129,7 @@ public class GieliDashPlugin extends Plugin
 	{
 		clientToolbar.removeNavigation(navButton);
 		overlayManager.remove(deliveryOverlay);
+		eventBus.unregister(tradeObserver);
 		clearGuidance();
 		activeOrder = null;
 		navButton = null;
@@ -168,6 +173,7 @@ public class GieliDashPlugin extends Plugin
 		{
 			List<Order> open = api.getOpenOrders();
 			List<Order> mine = api.getMyOrders();
+			List<com.gielidash.api.DasherPost> posts = api.getPosts();
 
 			Order next = mine.stream().filter(Order::isActive).findFirst().orElse(null);
 			updateActiveOrder(next);
@@ -178,6 +184,7 @@ public class GieliDashPlugin extends Plugin
 				{
 					panel.setOrders(open);
 					panel.setMyOrders(mine);
+					panel.setPosts(posts);
 					panel.setSyncStatus(open.size() + " open");
 				}
 			});
@@ -232,6 +239,24 @@ public class GieliDashPlugin extends Plugin
 	public void cancelOrder(Order order)
 	{
 		runApi("cancel", () -> api.cancelOrder(order.getId(), "cancelled_from_panel"));
+	}
+
+	/** Called from the Mine tab rating row (EDT). */
+	public void rateOrder(Order order, int stars)
+	{
+		runApi("rate", () -> api.submitRating(order.getId(), stars, null));
+	}
+
+	/** Called from the Posts tab (EDT). */
+	public void createDasherPost(String message, String feeNote)
+	{
+		runApi("post ad", () -> api.createPost(message, feeNote.isEmpty() ? null : feeNote));
+	}
+
+	/** Called from the Posts tab (EDT). */
+	public void deactivateDasherPost()
+	{
+		runApi("take down ad", () -> api.deactivatePost());
 	}
 
 	private void runApi(String what, Runnable call)

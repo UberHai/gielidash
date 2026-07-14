@@ -62,7 +62,8 @@ class OrderBox extends JPanel
 			body.add(Box.createVerticalStrut(2));
 		}
 
-		JLabel requester = new JLabel(order.getRequesterName() + "  ·  Cb " + order.getRequesterCombat());
+		JLabel requester = new JLabel(order.getRequesterName() + "  ·  Cb " + order.getRequesterCombat()
+			+ "  ·  " + Stars.format(order.getRequesterStars(), order.getRequesterRatingCount()));
 		requester.setFont(FontManager.getRunescapeSmallFont());
 		requester.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		body.add(requester);
