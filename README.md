@@ -7,10 +7,6 @@ A delivery marketplace for Gielinor, as a RuneLite plugin.
 over in a regular player-to-player trade at the destination. Both sides rate each other
 after the hand-off.
 
-GieliDash is a coordination board only: it never walks, trades, chats, or acts for you.
-Every in-game action is performed manually by the player, in line with Jagex's
-third-party client guidelines.
-
 ## Data disclosure
 
 When order sync is enabled (off by default), the plugin sends your account hash, display
