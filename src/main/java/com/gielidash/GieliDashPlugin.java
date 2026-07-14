@@ -27,6 +27,7 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.PluginMessage;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
@@ -147,6 +148,17 @@ public class GieliDashPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+		if (GieliDashConfig.GROUP.equals(event.getGroup())
+			&& "enableSync".equals(event.getKey())
+			&& config.enableSync())
+		{
+			sessionService.register();
+		}
+	}
+
+	@Subscribe
 	public void onGameTick(GameTick tick)
 	{
 		if (client.getLocalPlayer() != null)
@@ -166,7 +178,10 @@ public class GieliDashPlugin extends Plugin
 		}
 		if (!api.hasToken())
 		{
-			SwingUtilities.invokeLater(() -> panel.setSyncStatus("log in to register"));
+			// Self-heal: registration can miss the login event (timing, or sync
+			// enabled mid-session) - keep retrying until the token exists
+			sessionService.register();
+			SwingUtilities.invokeLater(() -> panel.setSyncStatus("registering..."));
 			return;
 		}
 		try

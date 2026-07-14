@@ -45,8 +45,10 @@ public class SessionService
 		{
 			if (client.getGameState() != GameState.LOGGED_IN
 				|| client.getLocalPlayer() == null
+				|| client.getLocalPlayer().getName() == null
 				|| client.getAccountHash() == -1)
 			{
+				log.debug("GieliDash registration deferred - player identity not ready yet");
 				return;
 			}
 
