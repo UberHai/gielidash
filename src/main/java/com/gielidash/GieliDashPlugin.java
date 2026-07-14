@@ -34,6 +34,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.task.Schedule;
 import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPoint;
@@ -92,6 +93,8 @@ public class GieliDashPlugin extends Plugin
 	private GieliDashPanel panel;
 	private NavigationButton navButton;
 	private BufferedImage pinIcon;
+	private BufferedImage dasherIcon;
+	private BufferedImage requesterIcon;
 
 	/** The one order currently guiding overlay/pin/route. Read from any thread. */
 	@Getter
@@ -116,6 +119,10 @@ public class GieliDashPlugin extends Plugin
 	{
 		panel = new GieliDashPanel(this, itemManager);
 		pinIcon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
+		// Map-icon language: brand red-orange = destination, green = the moving
+		// Dasher, gold = the waiting requester (user-approved scheme)
+		dasherIcon = ImageUtil.recolorImage(pinIcon, ColorScheme.PROGRESS_COMPLETE_COLOR);
+		requesterIcon = ImageUtil.recolorImage(pinIcon, new java.awt.Color(255, 184, 63)); // RS gold
 
 		navButton = NavigationButton.builder()
 			.tooltip("GieliDash")
@@ -201,6 +208,7 @@ public class GieliDashPlugin extends Plugin
 			List<Order> open = api.getOpenOrders();
 			List<Order> mine = api.getMyOrders();
 			List<com.gielidash.api.DasherPost> posts = api.getPosts();
+			com.gielidash.api.Metrics metrics = api.getMetrics();
 
 			Order next = mine.stream().filter(Order::isActive).findFirst().orElse(null);
 			updateActiveOrder(next);
@@ -226,6 +234,7 @@ public class GieliDashPlugin extends Plugin
 						panel.setOrders(open);
 						panel.setMyOrders(mine);
 						panel.setPosts(posts);
+						panel.setMetrics(metrics);
 						panel.setSyncStatus(open.size() + " open");
 					}
 				});
@@ -287,6 +296,27 @@ public class GieliDashPlugin extends Plugin
 	public void rateOrder(Order order, int stars)
 	{
 		runApi("rate", () -> api.submitRating(order.getId(), stars, null));
+	}
+
+	/** Called from a finished order's Reorder button (EDT). Prices need the client thread. */
+	public void reorder(Order order)
+	{
+		final List<OrderItem> items = order.getItems();
+		clientThread.invokeLater(() ->
+		{
+			Map<Integer, Long> prices = new HashMap<>();
+			for (OrderItem item : items)
+			{
+				prices.put(item.getId(), (long) itemManager.getItemPrice(item.getId()));
+			}
+			SwingUtilities.invokeLater(() ->
+			{
+				if (panel != null)
+				{
+					panel.reorderInto(items, prices);
+				}
+			});
+		});
 	}
 
 	/** Called from the Posts tab (EDT). */
@@ -423,7 +453,7 @@ public class GieliDashPlugin extends Plugin
 			counterpartPoint = WorldMapPoint.builder()
 				.worldPoint(new WorldPoint(order.getCpX(), order.getCpY(),
 					order.getCpPlane() != null ? order.getCpPlane() : 0))
-				.image(pinIcon)
+				.image(isDasher ? requesterIcon : dasherIcon)
 				.tooltip((isDasher ? "Requester: " : "Dasher: ") + who)
 				.snapToEdge(true)
 				.name("GieliDash " + (isDasher ? "requester" : "dasher"))

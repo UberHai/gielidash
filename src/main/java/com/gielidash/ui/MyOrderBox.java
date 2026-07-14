@@ -117,6 +117,12 @@ class MyOrderBox extends JPanel
 			actions.add(actionButton("Cancel", ColorScheme.LIGHT_GRAY_COLOR,
 				() -> plugin.cancelOrder(order)));
 		}
+		// One-click repost of a finished order I requested
+		if (isTerminal(order.getStatus()) && !isDasher)
+		{
+			actions.add(actionButton("Reorder", ColorScheme.LIGHT_GRAY_COLOR,
+				() -> plugin.reorder(order)));
+		}
 		if (actions.getComponentCount() > 0)
 		{
 			add(actions, BorderLayout.SOUTH);

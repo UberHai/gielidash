@@ -29,6 +29,10 @@ public class GieliDashPanel extends PluginPanel
 	private final GieliDashPlugin plugin;
 	private final ItemManager itemManager;
 	private PostsPanel postsPanel;
+	private CreateOrderPanel createPanel;
+	private MetricsPanel metricsPanel;
+	private MaterialTabGroup tabGroup;
+	private MaterialTab createTab;
 
 	public GieliDashPanel(GieliDashPlugin plugin, ItemManager itemManager)
 	{
@@ -52,17 +56,21 @@ public class GieliDashPanel extends PluginPanel
 		// FlowLayout (Swing default) lets children overflow and clip
 		JPanel display = new JPanel(new BorderLayout());
 		display.setOpaque(false);
-		MaterialTabGroup tabGroup = new MaterialTabGroup(display);
+		tabGroup = new MaterialTabGroup(display);
 
+		createPanel = new CreateOrderPanel(plugin, itemManager);
+		postsPanel = new PostsPanel(plugin);
+		metricsPanel = new MetricsPanel();
 		MaterialTab ordersTab = new MaterialTab("Orders", tabGroup, buildOrdersTab());
 		MaterialTab mineTab = new MaterialTab("Mine", tabGroup, buildMineTab());
-		MaterialTab createTab = new MaterialTab("Create", tabGroup, new CreateOrderPanel(plugin, itemManager));
-		postsPanel = new PostsPanel(plugin);
+		createTab = new MaterialTab("Create", tabGroup, createPanel);
 		MaterialTab postsTab = new MaterialTab("Posts", tabGroup, postsPanel);
+		MaterialTab statsTab = new MaterialTab("Stats", tabGroup, metricsPanel);
 		tabGroup.addTab(ordersTab);
 		tabGroup.addTab(mineTab);
 		tabGroup.addTab(createTab);
 		tabGroup.addTab(postsTab);
+		tabGroup.addTab(statsTab);
 		tabGroup.select(ordersTab);
 
 		add(tabGroup);
@@ -150,5 +158,18 @@ public class GieliDashPanel extends PluginPanel
 	public void setSyncStatus(String text)
 	{
 		syncStatus.setText(text);
+	}
+
+	/** Swing EDT only. */
+	public void setMetrics(com.gielidash.api.Metrics metrics)
+	{
+		metricsPanel.setMetrics(metrics);
+	}
+
+	/** Swing EDT only. Refill the Create basket from a past order and jump to it. */
+	public void reorderInto(List<com.gielidash.api.OrderItem> items, java.util.Map<Integer, Long> prices)
+	{
+		createPanel.loadBasket(items, prices);
+		tabGroup.select(createTab);
 	}
 }

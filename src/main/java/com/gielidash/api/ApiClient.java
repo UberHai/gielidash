@@ -106,6 +106,11 @@ public class ApiClient
 		return get("/posts", PostsResponse.class).posts;
 	}
 
+	public Metrics getMetrics()
+	{
+		return get("/metrics", MetricsResponse.class).metrics;
+	}
+
 	public void createPost(String message, @Nullable String feeNote)
 	{
 		post("/posts", Map.of(
@@ -236,6 +241,11 @@ public class ApiClient
 	private static class PostsResponse extends SimpleResponse
 	{
 		List<DasherPost> posts;
+	}
+
+	private static class MetricsResponse extends SimpleResponse
+	{
+		Metrics metrics;
 	}
 
 	private static class OrderResponse extends SimpleResponse

@@ -153,7 +153,7 @@ class CreateOrderPanel extends JPanel
 			clearResults();
 			return;
 		}
-		List<ItemPrice> results = itemManager.search(query.trim());
+		List<ItemPrice> results = sortDoseVariants(itemManager.search(query.trim()));
 		resultsList.removeAll();
 		for (ItemPrice result : results.subList(0, Math.min(MAX_RESULTS, results.size())))
 		{
@@ -161,6 +161,40 @@ class CreateOrderPanel extends JPanel
 		}
 		resultsList.revalidate();
 		resultsList.repaint();
+	}
+
+	/**
+	 * Dose/charge variants like "Prayer potion(1..4)" come back in arbitrary
+	 * order - sort each base-name group descending so (4) leads, keeping the
+	 * groups themselves in relevance order.
+	 */
+	private static List<ItemPrice> sortDoseVariants(List<ItemPrice> results)
+	{
+		java.util.regex.Pattern dosePattern = java.util.regex.Pattern.compile("^(.*)\\((\\d)\\)$");
+		java.util.Map<String, Integer> groupOrder = new java.util.HashMap<>();
+		for (int i = 0; i < results.size(); i++)
+		{
+			java.util.regex.Matcher m = dosePattern.matcher(results.get(i).getName());
+			String base = m.matches() ? m.group(1) : results.get(i).getName();
+			groupOrder.putIfAbsent(base, i);
+		}
+		List<ItemPrice> sorted = new ArrayList<>(results);
+		sorted.sort((a, b) ->
+		{
+			java.util.regex.Matcher ma = dosePattern.matcher(a.getName());
+			java.util.regex.Matcher mb = dosePattern.matcher(b.getName());
+			String baseA = ma.matches() ? ma.group(1) : a.getName();
+			String baseB = mb.matches() ? mb.group(1) : b.getName();
+			int byGroup = Integer.compare(groupOrder.get(baseA), groupOrder.get(baseB));
+			if (byGroup != 0)
+			{
+				return byGroup;
+			}
+			int doseA = ma.matches() ? Integer.parseInt(ma.group(2)) : -1;
+			int doseB = mb.matches() ? Integer.parseInt(mb.group(2)) : -1;
+			return Integer.compare(doseB, doseA); // descending: (4) first
+		});
+		return sorted;
 	}
 
 	/** Enter: add the exact-name match; otherwise the live list is there to click. */
@@ -311,11 +345,25 @@ class CreateOrderPanel extends JPanel
 		rebuildBasket();
 	}
 
+	/** Refill the basket from a past order (Reorder). Prices computed on the client thread. */
+	void loadBasket(List<OrderItem> items, java.util.Map<Integer, Long> prices)
+	{
+		basket.clear();
+		priceCache.putAll(prices);
+		for (OrderItem item : items)
+		{
+			basket.add(new OrderItem(item.getId(), item.getQty(), item.getName()));
+		}
+		clearResults();
+		setStatus("Basket loaded from your past order", false);
+		rebuildBasket();
+	}
+
 	private void submitOrder()
 	{
 		if (!plugin.isLoggedIn())
 		{
-			setStatus("Log in first - the order is posted at your location", true);
+			setStatus("Log in first", true);
 			return;
 		}
 		if (basket.isEmpty())
