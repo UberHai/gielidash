@@ -1,0 +1,30 @@
+# --- Research & AI-assistant material: never committed (repo ships only functioning plugin files) ---
+/docs/
+/assets/
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+*.plan.md
+
+# --- Build output ---
+.gradle/
+build/
+out/
+
+# --- IDE ---
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+nbactions.xml
+nb-configuration.xml
+nbproject/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
