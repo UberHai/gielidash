@@ -12,6 +12,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.ColorScheme;
+import net.runelite.client.ui.DynamicGridLayout;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.components.PluginErrorPanel;
@@ -47,8 +48,9 @@ public class GieliDashPanel extends PluginPanel
 		add(titleRow);
 		add(Box.createVerticalStrut(8));
 
-		// Tabs
-		JPanel display = new JPanel();
+		// Tabs. The display panel MUST stretch content to the panel width -
+		// FlowLayout (Swing default) lets children overflow and clip
+		JPanel display = new JPanel(new BorderLayout());
 		display.setOpaque(false);
 		MaterialTabGroup tabGroup = new MaterialTabGroup(display);
 
@@ -73,7 +75,7 @@ public class GieliDashPanel extends PluginPanel
 		JPanel tab = new JPanel(new BorderLayout());
 		tab.setOpaque(false);
 
-		ordersList.setLayout(new BoxLayout(ordersList, BoxLayout.Y_AXIS));
+		ordersList.setLayout(new DynamicGridLayout(0, 1, 0, 6));
 		ordersList.setOpaque(false);
 
 		emptyOrders.setContent("No open orders",
@@ -89,7 +91,7 @@ public class GieliDashPanel extends PluginPanel
 		JPanel tab = new JPanel(new BorderLayout());
 		tab.setOpaque(false);
 
-		mineList.setLayout(new BoxLayout(mineList, BoxLayout.Y_AXIS));
+		mineList.setLayout(new DynamicGridLayout(0, 1, 0, 6));
 		mineList.setOpaque(false);
 
 		emptyMine.setContent("Nothing yet",
@@ -112,10 +114,7 @@ public class GieliDashPanel extends PluginPanel
 		{
 			for (Order order : orders)
 			{
-				MyOrderBox box = new MyOrderBox(order, plugin);
-				box.setAlignmentX(LEFT_ALIGNMENT);
-				mineList.add(box);
-				mineList.add(Box.createVerticalStrut(6));
+				mineList.add(new MyOrderBox(order, plugin));
 			}
 		}
 		mineList.revalidate();
@@ -134,10 +133,7 @@ public class GieliDashPanel extends PluginPanel
 		{
 			for (Order order : orders)
 			{
-				OrderBox box = new OrderBox(order, itemManager, plugin::acceptOrder);
-				box.setAlignmentX(LEFT_ALIGNMENT);
-				ordersList.add(box);
-				ordersList.add(Box.createVerticalStrut(6));
+				ordersList.add(new OrderBox(order, itemManager, plugin::acceptOrder));
 			}
 		}
 		ordersList.revalidate();

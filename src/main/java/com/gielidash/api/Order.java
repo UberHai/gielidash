@@ -41,8 +41,13 @@ public class Order
 	private String requesterName;
 	@SerializedName("requester_combat")
 	private int requesterCombat;
+	/** 1 = hiscores-verified, 0 = failed verification, null = unchecked. */
+	@SerializedName("requester_verified")
+	private Integer requesterVerified;
 	@SerializedName("dasher_name")
 	private String dasherName;
+	@SerializedName("dasher_verified")
+	private Integer dasherVerified;
 	/** "requester" or "dasher" - only present on /orders/mine responses. */
 	private String role;
 	/** Stars I already gave on this order - /orders/mine only, null if unrated. */

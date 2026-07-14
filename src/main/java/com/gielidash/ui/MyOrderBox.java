@@ -61,19 +61,27 @@ class MyOrderBox extends JPanel
 		items.setForeground(ColorScheme.TEXT_COLOR);
 		body.add(items);
 
+		// Two short lines instead of one long one - the panel is only 225px (live-test finding)
 		String counterpartStars = isDasher
 			? Stars.format(order.getRequesterStars(), order.getRequesterRatingCount())
 			: Stars.format(order.getDasherStars(), order.getDasherRatingCount());
+		Integer verifiedFlag = isDasher ? order.getRequesterVerified() : order.getDasherVerified();
+		String check = verifiedFlag != null && verifiedFlag == 1 ? "✓ " : "";
 		String counterpart = isDasher
-			? "for " + order.getRequesterName() + " " + counterpartStars
+			? "for " + check + order.getRequesterName() + " " + counterpartStars
 			: (order.getDasherName() != null
-				? "dasher: " + order.getDasherName() + " " + counterpartStars
+				? "dasher: " + check + order.getDasherName() + " " + counterpartStars
 				: "waiting for a dasher");
-		JLabel who = new JLabel(counterpart + "  ·  W" + order.getWorld()
-			+ "  ·  " + QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp");
+		JLabel who = new JLabel(counterpart);
 		who.setFont(FontManager.getRunescapeSmallFont());
 		who.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		body.add(who);
+
+		JLabel meta = new JLabel("W" + order.getWorld()
+			+ "  ·  " + QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp fee");
+		meta.setFont(FontManager.getRunescapeSmallFont());
+		meta.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		body.add(meta);
 
 		// Delivery duration (accept -> delivered), from server timestamps
 		String duration = formatDuration(order.getClaimedAt(), order.getCompletedAt());
@@ -124,7 +132,7 @@ class MyOrderBox extends JPanel
 		// The panel is 225px wide minus card padding - keep this row compact (live-test finding)
 		if (order.getMyRating() != null)
 		{
-			JLabel done = new JLabel("Rated " + "★".repeat(order.getMyRating()));
+			JLabel done = new JLabel("Rated " + order.getMyRating() + "/5 ★");
 			done.setFont(FontManager.getRunescapeSmallFont());
 			done.setForeground(ColorScheme.BRAND_ORANGE);
 			row.add(done);

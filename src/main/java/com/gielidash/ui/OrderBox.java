@@ -62,7 +62,20 @@ class OrderBox extends JPanel
 			body.add(Box.createVerticalStrut(2));
 		}
 
-		JLabel requester = new JLabel(order.getRequesterName() + "  ·  Cb " + order.getRequesterCombat()
+		// GE cost estimate so Dashers know what they'll front
+		long frontCost = 0;
+		for (OrderItem item : order.getItems())
+		{
+			frontCost += (long) itemManager.getItemPrice(item.getId()) * item.getQty();
+		}
+		JLabel cost = new JLabel("Front ~" + QuantityFormatter.quantityToStackSize(frontCost)
+			+ " gp · earn " + QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp");
+		cost.setFont(FontManager.getRunescapeSmallFont());
+		cost.setForeground(ColorScheme.GRAND_EXCHANGE_ALCH);
+		body.add(cost);
+
+		String check = order.getRequesterVerified() != null && order.getRequesterVerified() == 1 ? "✓ " : "";
+		JLabel requester = new JLabel(check + order.getRequesterName() + "  ·  Cb " + order.getRequesterCombat()
 			+ "  ·  " + Stars.format(order.getRequesterStars(), order.getRequesterRatingCount()));
 		requester.setFont(FontManager.getRunescapeSmallFont());
 		requester.setForeground(ColorScheme.LIGHT_GRAY_COLOR);

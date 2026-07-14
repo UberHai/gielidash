@@ -3,36 +3,47 @@ package com.gielidash.ui;
 import com.gielidash.GieliDashPlugin;
 import com.gielidash.api.OrderItem;
 import java.awt.BorderLayout;
+import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.ColorScheme;
+import net.runelite.client.ui.DynamicGridLayout;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.components.FlatTextField;
 import net.runelite.client.ui.components.IconTextField;
+import net.runelite.client.util.QuantityFormatter;
 import net.runelite.http.api.item.ItemPrice;
 
 /**
- * "Create" tab: item search -> basket, fee, destination = player's location.
+ * "Create" tab: item search with a result picker, basket with GE price
+ * estimate, fee, destination = player's location.
+ *
+ * Layout rule (live-test finding): every vertical stack is a DynamicGridLayout
+ * so children are forced to the 225px panel width - labels ellipsize instead
+ * of getting clipped.
  */
 class CreateOrderPanel extends JPanel
 {
+	private static final int MAX_RESULTS = 8;
+
 	private final GieliDashPlugin plugin;
 	private final ItemManager itemManager;
 
 	private final List<OrderItem> basket = new ArrayList<>();
-	private final JPanel basketList = new JPanel();
+	private final JPanel resultsList = new JPanel(new DynamicGridLayout(0, 1, 0, 2));
+	private final JPanel basketList = new JPanel(new DynamicGridLayout(0, 1, 0, 2));
 	private final IconTextField searchField = new IconTextField();
 	private final FlatTextField feeField = new FlatTextField();
+	private final JLabel estimateLabel = new JLabel(" ");
 	private final JLabel statusLabel = new JLabel(" ");
 
 	CreateOrderPanel(GieliDashPlugin plugin, ItemManager itemManager)
@@ -40,43 +51,39 @@ class CreateOrderPanel extends JPanel
 		this.plugin = plugin;
 		this.itemManager = itemManager;
 
-		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+		setLayout(new DynamicGridLayout(0, 1, 0, 6));
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
 		setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
 
-		// Item search
 		searchField.setIcon(IconTextField.Icon.SEARCH);
-		searchField.setPreferredSize(new java.awt.Dimension(0, 30));
+		searchField.setPreferredSize(new Dimension(0, 30));
 		searchField.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		searchField.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
-		searchField.addActionListener(e -> addFirstMatch());
+		searchField.addActionListener(e -> doSearch());
+		searchField.addClearListener(this::clearResults);
 		add(searchField);
-		add(Box.createVerticalStrut(6));
+		add(smallLabel("Search an item, press Enter"));
 
-		JLabel hint = smallLabel("Type an item name, press Enter to add");
-		add(hint);
-		add(Box.createVerticalStrut(6));
+		resultsList.setOpaque(false);
+		add(resultsList);
 
-		// Basket
-		basketList.setLayout(new BoxLayout(basketList, BoxLayout.Y_AXIS));
 		basketList.setOpaque(false);
 		add(basketList);
-		add(Box.createVerticalStrut(8));
 
-		// Fee
-		add(smallLabel("Delivery fee (gp, on top of item cost)"));
+		estimateLabel.setFont(FontManager.getRunescapeSmallFont());
+		estimateLabel.setForeground(ColorScheme.GRAND_EXCHANGE_ALCH);
+		add(estimateLabel);
+
+		add(smallLabel("Delivery fee (gp)"));
 		feeField.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		feeField.setPreferredSize(new java.awt.Dimension(0, 30));
+		feeField.setPreferredSize(new Dimension(0, 30));
 		feeField.getTextField().setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
 		feeField.getTextField().setFont(FontManager.getRunescapeFont());
 		add(feeField);
-		add(Box.createVerticalStrut(10));
 
-		// Submit
 		JButton submit = new JButton("Post order at my location");
 		submit.setFont(FontManager.getRunescapeSmallFont());
 		submit.setFocusPainted(false);
-		submit.setAlignmentX(LEFT_ALIGNMENT);
 		submit.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
 		submit.setForeground(ColorScheme.BRAND_ORANGE);
 		submit.setBorder(BorderFactory.createEmptyBorder(7, 12, 7, 12));
@@ -96,7 +103,6 @@ class CreateOrderPanel extends JPanel
 		});
 		submit.addActionListener(e -> submitOrder());
 		add(submit);
-		add(Box.createVerticalStrut(6));
 
 		statusLabel.setFont(FontManager.getRunescapeSmallFont());
 		statusLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
@@ -108,11 +114,11 @@ class CreateOrderPanel extends JPanel
 		JLabel label = new JLabel(text);
 		label.setFont(FontManager.getRunescapeSmallFont());
 		label.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-		label.setAlignmentX(LEFT_ALIGNMENT);
 		return label;
 	}
 
-	private void addFirstMatch()
+	/** Enter in the search box: exact match adds directly, otherwise show a picker. */
+	private void doSearch()
 	{
 		String query = searchField.getText();
 		if (query == null || query.trim().isEmpty() || basket.size() >= 28)
@@ -125,20 +131,94 @@ class CreateOrderPanel extends JPanel
 			setStatus("No tradeable item matches '" + query.trim() + "'", true);
 			return;
 		}
-		ItemPrice match = results.get(0);
-		basket.add(new OrderItem(match.getId(), 1, match.getName()));
+
+		ItemPrice exact = results.stream()
+			.filter(r -> r.getName().equalsIgnoreCase(query.trim()))
+			.findFirst().orElse(null);
+		if (exact != null || results.size() == 1)
+		{
+			addToBasket(exact != null ? exact : results.get(0));
+			return;
+		}
+
+		// Ambiguous ("swordfish" -> Raw swordfish, Swordfish, ...): let the user pick
+		resultsList.removeAll();
+		for (ItemPrice result : results.subList(0, Math.min(MAX_RESULTS, results.size())))
+		{
+			resultsList.add(buildResultRow(result));
+		}
+		setStatus("Pick the item you mean", false);
+		resultsList.revalidate();
+		resultsList.repaint();
+	}
+
+	private JPanel buildResultRow(ItemPrice result)
+	{
+		JPanel row = new JPanel(new BorderLayout());
+		row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		row.setBorder(BorderFactory.createEmptyBorder(3, 6, 3, 6));
+		row.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+		JLabel name = new JLabel(result.getName());
+		name.setFont(FontManager.getRunescapeSmallFont());
+		name.setForeground(ColorScheme.TEXT_COLOR);
+		name.setIconTextGap(6);
+		itemManager.getImage(result.getId()).addTo(name);
+		row.add(name, BorderLayout.CENTER);
+
+		JLabel price = new JLabel(QuantityFormatter.quantityToStackSize(result.getPrice()) + " gp");
+		price.setFont(FontManager.getRunescapeSmallFont());
+		price.setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
+		row.add(price, BorderLayout.EAST);
+
+		row.addMouseListener(new MouseAdapter()
+		{
+			@Override
+			public void mouseClicked(MouseEvent e)
+			{
+				addToBasket(result);
+			}
+
+			@Override
+			public void mouseEntered(MouseEvent e)
+			{
+				row.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
+			}
+
+			@Override
+			public void mouseExited(MouseEvent e)
+			{
+				row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+			}
+		});
+		return row;
+	}
+
+	private void addToBasket(ItemPrice item)
+	{
+		basket.add(new OrderItem(item.getId(), 1, item.getName()));
 		searchField.setText("");
+		clearResults();
 		setStatus(" ", false);
 		rebuildBasket();
+	}
+
+	private void clearResults()
+	{
+		resultsList.removeAll();
+		resultsList.revalidate();
+		resultsList.repaint();
 	}
 
 	private void rebuildBasket()
 	{
 		basketList.removeAll();
+		long estimate = 0;
 		for (int i = 0; i < basket.size(); i++)
 		{
 			final int index = i;
 			OrderItem item = basket.get(i);
+			estimate += (long) itemManager.getItemPrice(item.getId()) * item.getQty();
 
 			JPanel row = new JPanel(new BorderLayout());
 			row.setOpaque(false);
@@ -149,11 +229,10 @@ class CreateOrderPanel extends JPanel
 			name.setForeground(ColorScheme.TEXT_COLOR);
 			itemManager.getImage(item.getId(), item.getQty(), item.getQty() > 1).addTo(name);
 			name.setIconTextGap(6);
-			row.add(name, BorderLayout.WEST);
+			row.add(name, BorderLayout.CENTER);
 
-			JPanel controls = new JPanel();
+			JPanel controls = new JPanel(new DynamicGridLayout(1, 3, 2, 0));
 			controls.setOpaque(false);
-			controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
 			controls.add(miniButton("+", () -> changeQty(index, 1)));
 			controls.add(miniButton("-", () -> changeQty(index, -1)));
 			controls.add(miniButton("x", () -> removeItem(index)));
@@ -161,6 +240,8 @@ class CreateOrderPanel extends JPanel
 
 			basketList.add(row);
 		}
+		estimateLabel.setText(basket.isEmpty() ? " "
+			: "Items: ~" + QuantityFormatter.quantityToStackSize(estimate) + " gp (GE)");
 		basketList.revalidate();
 		basketList.repaint();
 	}
@@ -172,7 +253,8 @@ class CreateOrderPanel extends JPanel
 		button.setFocusPainted(false);
 		button.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		button.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-		button.setBorder(BorderFactory.createEmptyBorder(2, 7, 2, 7));
+		button.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
+		button.setMargin(new java.awt.Insets(0, 0, 0, 0));
 		button.addActionListener(e -> action.run());
 		return button;
 	}
@@ -180,7 +262,7 @@ class CreateOrderPanel extends JPanel
 	private void changeQty(int index, int delta)
 	{
 		OrderItem item = basket.get(index);
-		int qty = Math.max(1, Math.min(2147483647, item.getQty() + delta));
+		int qty = Math.max(1, item.getQty() + delta);
 		basket.set(index, new OrderItem(item.getId(), qty, item.getName()));
 		rebuildBasket();
 	}

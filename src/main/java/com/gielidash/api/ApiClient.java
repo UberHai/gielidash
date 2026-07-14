@@ -52,14 +52,18 @@ public class ApiClient
 		return token != null && !token.isEmpty();
 	}
 
-	/** Registers/refreshes this account; stores the minted token on first contact. */
+	/**
+	 * Registers/refreshes this account; stores the minted token on first contact.
+	 * Sends our token when we have one - the server requires it for updates to
+	 * an existing account (anti-spoofing).
+	 */
 	public void hello(long accountHash, String displayName, Map<String, Object> vetting)
 	{
 		HelloResponse resp = post("/session/hello", Map.of(
 			"accountHash", accountHash,
 			"displayName", displayName,
 			"vetting", vetting
-		), HelloResponse.class, false);
+		), HelloResponse.class, hasToken());
 
 		if (resp.token != null && !resp.token.isEmpty())
 		{

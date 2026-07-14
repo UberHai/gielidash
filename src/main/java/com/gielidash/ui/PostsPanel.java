@@ -6,12 +6,11 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.util.List;
 import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import net.runelite.client.ui.ColorScheme;
+import net.runelite.client.ui.DynamicGridLayout;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.components.FlatTextField;
 import net.runelite.client.ui.components.PluginErrorPanel;
@@ -32,7 +31,7 @@ public class PostsPanel extends JPanel
 	{
 		this.plugin = plugin;
 
-		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+		setLayout(new DynamicGridLayout(0, 1, 0, 5));
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
 		setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
 
@@ -43,36 +42,26 @@ public class PostsPanel extends JPanel
 		messageField.getTextField().setFont(FontManager.getRunescapeSmallFont());
 		messageField.getTextField().setToolTipText("What you deliver and where, e.g. 'Food + potions, anywhere in Kandarin'");
 		add(messageField);
-		add(Box.createVerticalStrut(4));
 
 		feeField.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		feeField.setPreferredSize(new Dimension(0, 30));
 		feeField.getTextField().setFont(FontManager.getRunescapeSmallFont());
 		feeField.getTextField().setToolTipText("Your rate, e.g. '50k base + 10k per region'");
 		add(feeField);
-		add(Box.createVerticalStrut(6));
 
-		JPanel buttons = new JPanel();
+		JPanel buttons = new JPanel(new DynamicGridLayout(1, 2, 6, 0));
 		buttons.setOpaque(false);
-		buttons.setLayout(new BoxLayout(buttons, BoxLayout.X_AXIS));
-		buttons.setAlignmentX(LEFT_ALIGNMENT);
-		JButton post = actionButton("Post ad", () -> submit());
-		JButton takeDown = actionButton("Take down", () -> plugin.deactivateDasherPost());
-		buttons.add(post);
-		buttons.add(Box.createHorizontalStrut(6));
-		buttons.add(takeDown);
+		buttons.add(actionButton("Post ad", () -> submit()));
+		buttons.add(actionButton("Take down", () -> plugin.deactivateDasherPost()));
 		add(buttons);
-		add(Box.createVerticalStrut(4));
 
 		statusLabel.setFont(FontManager.getRunescapeSmallFont());
 		statusLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		add(statusLabel);
-		add(Box.createVerticalStrut(8));
 
 		// Feed
-		postsList.setLayout(new BoxLayout(postsList, BoxLayout.Y_AXIS));
+		postsList.setLayout(new DynamicGridLayout(0, 1, 0, 6));
 		postsList.setOpaque(false);
-		postsList.setAlignmentX(LEFT_ALIGNMENT);
 		emptyPosts.setContent("No Dashers advertising",
 			"Dasher availability posts will show up here.");
 		postsList.add(emptyPosts);
@@ -106,7 +95,6 @@ public class PostsPanel extends JPanel
 			for (DasherPost post : posts)
 			{
 				postsList.add(buildPostBox(post));
-				postsList.add(Box.createVerticalStrut(6));
 			}
 		}
 		postsList.revalidate();

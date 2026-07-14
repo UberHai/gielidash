@@ -123,6 +123,12 @@ public class GieliDashPlugin extends Plugin
 		overlayManager.add(deliveryOverlay);
 		eventBus.register(tradeObserver);
 
+		// Covers install / plugin re-enable while already logged in
+		if (config.enableSync())
+		{
+			sessionService.register();
+		}
+
 		log.debug("GieliDash started");
 	}
 
