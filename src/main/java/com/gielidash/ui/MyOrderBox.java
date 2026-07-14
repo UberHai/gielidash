@@ -75,6 +75,16 @@ class MyOrderBox extends JPanel
 		who.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		body.add(who);
 
+		// Delivery duration (accept -> delivered), from server timestamps
+		String duration = formatDuration(order.getClaimedAt(), order.getCompletedAt());
+		if ("delivered".equals(order.getStatus()) && duration != null)
+		{
+			JLabel took = new JLabel("Delivered in " + duration);
+			took.setFont(FontManager.getRunescapeSmallFont());
+			took.setForeground(ColorScheme.PROGRESS_COMPLETE_COLOR);
+			body.add(took);
+		}
+
 		// Rate the counterpart once the order is finished (delivered/failed/cancelled with a dasher)
 		if (isTerminal(order.getStatus()) && order.getDasherName() != null)
 		{
@@ -111,16 +121,17 @@ class MyOrderBox extends JPanel
 		row.setOpaque(false);
 		row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
 
+		// The panel is 225px wide minus card padding - keep this row compact (live-test finding)
 		if (order.getMyRating() != null)
 		{
-			JLabel done = new JLabel("You rated " + "★".repeat(order.getMyRating()));
+			JLabel done = new JLabel("Rated " + "★".repeat(order.getMyRating()));
 			done.setFont(FontManager.getRunescapeSmallFont());
 			done.setForeground(ColorScheme.BRAND_ORANGE);
 			row.add(done);
 			return row;
 		}
 
-		JLabel prompt = new JLabel("Rate: ");
+		JLabel prompt = new JLabel("Rate ");
 		prompt.setFont(FontManager.getRunescapeSmallFont());
 		prompt.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		row.add(prompt);
@@ -132,13 +143,43 @@ class MyOrderBox extends JPanel
 			star.setFocusPainted(false);
 			star.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
 			star.setForeground(ColorScheme.BRAND_ORANGE);
-			star.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
+			star.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+			star.setMargin(new java.awt.Insets(0, 0, 0, 0));
 			star.setToolTipText(stars + (stars == 1 ? " star" : " stars"));
 			star.addActionListener(e -> plugin.rateOrder(order, value));
 			row.add(star);
-			row.add(Box.createHorizontalStrut(3));
+			row.add(Box.createHorizontalStrut(2));
 		}
+		row.add(Box.createHorizontalGlue());
 		return row;
+	}
+
+	/** "3m 42s" from two server "yyyy-MM-dd HH:mm:ss" timestamps, or null. */
+	private static String formatDuration(String claimedAt, String completedAt)
+	{
+		if (claimedAt == null || completedAt == null)
+		{
+			return null;
+		}
+		try
+		{
+			java.time.format.DateTimeFormatter fmt =
+				java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+			long seconds = java.time.Duration.between(
+				java.time.LocalDateTime.parse(claimedAt, fmt),
+				java.time.LocalDateTime.parse(completedAt, fmt)).getSeconds();
+			if (seconds < 0)
+			{
+				return null;
+			}
+			return seconds >= 3600
+				? (seconds / 3600) + "h " + (seconds % 3600) / 60 + "m"
+				: (seconds / 60) + "m " + (seconds % 60) + "s";
+		}
+		catch (java.time.format.DateTimeParseException e)
+		{
+			return null;
+		}
 	}
 
 	private static String nextAction(String status, boolean isDasher)

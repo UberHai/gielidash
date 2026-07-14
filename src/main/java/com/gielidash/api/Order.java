@@ -22,8 +22,21 @@ public class Order
 	private String notes;
 	@SerializedName("created_at")
 	private String createdAt;
+	@SerializedName("claimed_at")
+	private String claimedAt;
+	@SerializedName("completed_at")
+	private String completedAt;
 	@SerializedName("expires_at")
 	private String expiresAt;
+	/** Counterpart's last heartbeat - /orders/mine only, null when never sent. */
+	@SerializedName("cp_x")
+	private Integer cpX;
+	@SerializedName("cp_y")
+	private Integer cpY;
+	@SerializedName("cp_plane")
+	private Integer cpPlane;
+	@SerializedName("cp_world")
+	private Integer cpWorld;
 	@SerializedName("requester_name")
 	private String requesterName;
 	@SerializedName("requester_combat")

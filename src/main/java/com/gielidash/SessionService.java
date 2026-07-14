@@ -23,10 +23,14 @@ import net.runelite.client.callback.ClientThread;
 @Singleton
 public class SessionService
 {
+	private static final long REFRESH_INTERVAL_MS = 10 * 60 * 1000L;
+
 	private final Client client;
 	private final ClientThread clientThread;
 	private final ScheduledExecutorService executor;
 	private final ApiClient api;
+
+	private volatile long lastHelloAt;
 
 	@Inject
 	private SessionService(Client client, ClientThread clientThread,
@@ -41,6 +45,13 @@ public class SessionService
 	/** Call after LOGGED_IN. Reads game state on the client thread, POSTs off it. */
 	public void register()
 	{
+		// Debounce: region loads refire LOGGED_IN constantly; once registered,
+		// a vetting refresh every 10 minutes is plenty
+		if (api.hasToken() && System.currentTimeMillis() - lastHelloAt < REFRESH_INTERVAL_MS)
+		{
+			return;
+		}
+
 		clientThread.invokeLater(() ->
 		{
 			if (client.getGameState() != GameState.LOGGED_IN
@@ -74,6 +85,7 @@ public class SessionService
 				try
 				{
 					api.hello(accountHash, displayName, vetting);
+					lastHelloAt = System.currentTimeMillis();
 					log.debug("Registered with GieliDash server as {}", displayName);
 				}
 				catch (ApiException e)

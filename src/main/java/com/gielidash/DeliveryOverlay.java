@@ -65,28 +65,55 @@ class DeliveryOverlay extends OverlayPanel
 			.rightColor(GP_GREEN)
 			.build());
 
-		Player local = client.getLocalPlayer();
-		if (local != null)
+		WorldPoint dest = new WorldPoint(order.getDestX(), order.getDestY(), order.getDestPlane());
+		if (isDasher)
 		{
-			if (client.getWorld() != order.getWorld())
+			// Dasher: my own distance to the drop-off
+			Player local = client.getLocalPlayer();
+			if (local != null)
 			{
-				panelComponent.getChildren().add(LineComponent.builder()
-					.left("World:")
-					.right("Hop to " + order.getWorld())
-					.rightColor(ColorScheme.PROGRESS_ERROR_COLOR)
-					.build());
+				if (client.getWorld() != order.getWorld())
+				{
+					panelComponent.getChildren().add(LineComponent.builder()
+						.left("World:")
+						.right("Hop to " + order.getWorld())
+						.rightColor(ColorScheme.PROGRESS_ERROR_COLOR)
+						.build());
+				}
+				else
+				{
+					int tiles = local.getWorldLocation().distanceTo2D(dest);
+					panelComponent.getChildren().add(LineComponent.builder()
+						.left("Distance:")
+						.right(tiles + " tiles")
+						.build());
+					panelComponent.getChildren().add(LineComponent.builder()
+						.left("ETA (run):")
+						.right(formatEta(tiles))
+						.build());
+				}
 			}
-			else
+		}
+		else if (order.getCpX() != null && order.getCpY() != null)
+		{
+			// Requester: the Dasher's last reported distance to me
+			WorldPoint dasherAt = new WorldPoint(order.getCpX(), order.getCpY(),
+				order.getCpPlane() != null ? order.getCpPlane() : 0);
+			int tiles = dasherAt.distanceTo2D(dest);
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left("Dasher:")
+				.right(tiles + " tiles out")
+				.build());
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left("ETA (run):")
+				.right(formatEta(tiles))
+				.build());
+			if (order.getCpWorld() != null && order.getCpWorld() != order.getWorld())
 			{
-				WorldPoint dest = new WorldPoint(order.getDestX(), order.getDestY(), order.getDestPlane());
-				int tiles = local.getWorldLocation().distanceTo2D(dest);
 				panelComponent.getChildren().add(LineComponent.builder()
-					.left("Distance:")
-					.right(tiles + " tiles")
-					.build());
-				panelComponent.getChildren().add(LineComponent.builder()
-					.left("ETA (run):")
-					.right(formatEta(tiles))
+					.left("Dasher world:")
+					.right(String.valueOf(order.getCpWorld()))
+					.rightColor(ColorScheme.PROGRESS_INPROGRESS_COLOR)
 					.build());
 			}
 		}

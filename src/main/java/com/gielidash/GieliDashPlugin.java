@@ -104,6 +104,7 @@ public class GieliDashPlugin extends Plugin
 	private volatile int lastWorld;
 
 	private WorldMapPoint mapPoint;
+	private WorldMapPoint counterpartPoint;
 	private boolean routeShown;
 
 	@Override
@@ -192,6 +193,7 @@ public class GieliDashPlugin extends Plugin
 
 			Order next = mine.stream().filter(Order::isActive).findFirst().orElse(null);
 			updateActiveOrder(next);
+			updateCounterpartPin(next);
 
 			SwingUtilities.invokeLater(() ->
 			{
@@ -285,6 +287,14 @@ public class GieliDashPlugin extends Plugin
 			catch (ApiException e)
 			{
 				log.warn("GieliDash {} failed: {}", what, e.getMessage());
+				SwingUtilities.invokeLater(() ->
+				{
+					if (panel != null)
+					{
+						// Next successful poll overwrites this with the open count
+						panel.setSyncStatus(what + " failed: " + e.getMessage());
+					}
+				});
 			}
 			pollOrders();
 		});
@@ -369,6 +379,34 @@ public class GieliDashPlugin extends Plugin
 		});
 	}
 
+	/** Moves the counterpart's live map icon to their last heartbeat. Any thread. */
+	private void updateCounterpartPin(@Nullable Order order)
+	{
+		clientThread.invokeLater(() ->
+		{
+			if (counterpartPoint != null)
+			{
+				worldMapPointManager.remove(counterpartPoint);
+				counterpartPoint = null;
+			}
+			if (order == null || order.getCpX() == null || order.getCpY() == null)
+			{
+				return;
+			}
+			boolean isDasher = "dasher".equals(order.getRole());
+			String who = isDasher ? order.getRequesterName() : order.getDasherName();
+			counterpartPoint = WorldMapPoint.builder()
+				.worldPoint(new WorldPoint(order.getCpX(), order.getCpY(),
+					order.getCpPlane() != null ? order.getCpPlane() : 0))
+				.image(pinIcon)
+				.tooltip((isDasher ? "Requester: " : "Dasher: ") + who)
+				.snapToEdge(true)
+				.name("GieliDash " + (isDasher ? "requester" : "dasher"))
+				.build();
+			worldMapPointManager.add(counterpartPoint);
+		});
+	}
+
 	/** Client thread only. */
 	private void clearGuidance()
 	{
@@ -376,6 +414,11 @@ public class GieliDashPlugin extends Plugin
 		{
 			worldMapPointManager.remove(mapPoint);
 			mapPoint = null;
+		}
+		if (counterpartPoint != null)
+		{
+			worldMapPointManager.remove(counterpartPoint);
+			counterpartPoint = null;
 		}
 		if (routeShown)
 		{
