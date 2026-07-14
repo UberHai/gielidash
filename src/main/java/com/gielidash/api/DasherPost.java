@@ -14,6 +14,8 @@ public class DasherPost
 	private String dasherName;
 	@SerializedName("dasher_combat")
 	private int dasherCombat;
+	@SerializedName("dasher_verified")
+	private Integer dasherVerified;
 	@SerializedName("stars_avg")
 	private Double stars;
 	@SerializedName("rating_count")

@@ -78,6 +78,8 @@ public class PostsPanel extends JPanel
 		}
 		String feeNote = feeField.getText() == null ? "" : feeField.getText().trim();
 		statusLabel.setText("Posting...");
+		messageField.setText("");
+		feeField.setText("");
 		plugin.createDasherPost(message, feeNote);
 	}
 
@@ -108,7 +110,8 @@ public class PostsPanel extends JPanel
 		box.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
 		box.setAlignmentX(LEFT_ALIGNMENT);
 
-		JLabel who = new JLabel((post.mine() ? "You" : post.getDasherName())
+		String check = post.getDasherVerified() != null && post.getDasherVerified() == 1 ? "✓ " : "";
+		JLabel who = new JLabel(check + (post.mine() ? "You" : post.getDasherName())
 			+ "  ·  Cb " + post.getDasherCombat()
 			+ "  ·  " + Stars.format(post.getStars(), post.getRatingCount()));
 		who.setFont(FontManager.getRunescapeSmallFont());

@@ -72,8 +72,9 @@ public class GieliDashPanel extends PluginPanel
 		tabGroup.addTab(postsTab);
 		tabGroup.addTab(statsTab);
 		// MaterialTabGroup defaults to FlowLayout, which wraps overflowing tabs
-		// onto an invisible second row at 225px - force one row of equal cells
-		tabGroup.setLayout(new java.awt.GridLayout(1, 5, 2, 0));
+		// onto an invisible second row at 225px. One row of 5 makes the labels
+		// unreadable - two rows of three keeps them full-width and legible
+		tabGroup.setLayout(new DynamicGridLayout(0, 3, 2, 2));
 		tabGroup.select(ordersTab);
 
 		add(tabGroup);
