@@ -76,7 +76,7 @@ class OrderBox extends JPanel
 			cost.setToolTipText("You buy the items (~"
 				+ Gp.format(order.getFrontCostGp())
 				+ " gp), the requester pays items + "
-				+ Gp.format(order.getFeeGp()) + " gp fee on delivery");
+				+ Gp.format(order.getFeeGp()) + " gp reward on delivery");
 			body.add(cost);
 		}
 

@@ -60,7 +60,7 @@ class DeliveryOverlay extends OverlayPanel
 			.build());
 
 		panelComponent.getChildren().add(LineComponent.builder()
-			.left("Fee:")
+			.left("Reward:")
 			.right(Gp.format(order.getFeeGp()) + " gp")
 			.rightColor(GP_GREEN)
 			.build());

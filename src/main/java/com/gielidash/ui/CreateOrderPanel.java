@@ -121,7 +121,7 @@ class CreateOrderPanel extends JPanel
 		});
 		add(directedLabel);
 
-		add(smallLabel("Delivery fee (gp)"));
+		add(smallLabel("Delivery reward (gp)"));
 		feeField.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		feeField.setPreferredSize(new Dimension(0, 30));
 		feeField.getTextField().setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
@@ -532,12 +532,12 @@ class CreateOrderPanel extends JPanel
 		}
 		catch (NumberFormatException e)
 		{
-			setStatus("Enter the fee as a number, e.g. 150000", true);
+			setStatus("Enter the reward as a number, e.g. 150000", true);
 			return;
 		}
 		if (fee < 0)
 		{
-			setStatus("The fee can't be negative", true);
+			setStatus("The reward can't be negative", true);
 			return;
 		}
 

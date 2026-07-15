@@ -93,7 +93,7 @@ class MyOrderBox extends JPanel
 		body.add(who);
 
 		JLabel meta = new JLabel("W" + order.getWorld()
-			+ "  ·  " + Gp.format(order.getFeeGp()) + " gp fee");
+			+ "  ·  " + Gp.format(order.getFeeGp()) + " gp reward");
 		meta.setFont(FontManager.getRunescapeSmallFont());
 		meta.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		body.add(meta);
@@ -149,7 +149,7 @@ class MyOrderBox extends JPanel
 		if (showFeeNudge)
 		{
 			actions.add(Box.createHorizontalStrut(6));
-			actions.add(actionButton("Raise fee +25%", ColorScheme.GRAND_EXCHANGE_PRICE,
+			actions.add(actionButton("Raise reward +25%", ColorScheme.GRAND_EXCHANGE_PRICE,
 				() -> plugin.raiseFee(order)));
 		}
 		// One-click repost of a finished order I requested
