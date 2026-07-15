@@ -86,7 +86,7 @@ class MyOrderBox extends JPanel
 				@Override
 				public void mouseClicked(java.awt.event.MouseEvent e)
 				{
-					plugin.fetchProfile(counterpartName, profile -> ProfilePopup.show(who, profile));
+					ProfilePopup.fetchAndShow(plugin, who, counterpartName);
 				}
 			});
 		}

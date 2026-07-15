@@ -133,7 +133,7 @@ public class PostsPanel extends JPanel
 				@Override
 				public void mouseClicked(java.awt.event.MouseEvent e)
 				{
-					plugin.fetchProfile(post.getDasherName(), profile -> ProfilePopup.show(who, profile));
+					ProfilePopup.fetchAndShow(plugin, who, post.getDasherName());
 				}
 			});
 		}

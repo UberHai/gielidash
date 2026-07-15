@@ -102,8 +102,7 @@ class OrderBox extends JPanel
 			@Override
 			public void mouseClicked(MouseEvent e)
 			{
-				plugin.fetchProfile(order.getRequesterName(),
-					profile -> ProfilePopup.show(requester, profile));
+				ProfilePopup.fetchAndShow(plugin, requester, order.getRequesterName());
 			}
 		});
 		body.add(requester);

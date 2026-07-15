@@ -21,9 +21,34 @@ public final class ProfilePopup
 	{
 	}
 
+	/**
+	 * Fetch then show, surviving the card-list re-render race: if the clicked
+	 * label was replaced by a poll while the profile loaded, anchor to the
+	 * panel instead of a detached component.
+	 */
+	public static void fetchAndShow(com.gielidash.GieliDashPlugin plugin,
+		javax.swing.JComponent anchor, String name)
+	{
+		javax.swing.JComponent stable = (javax.swing.JComponent)
+			javax.swing.SwingUtilities.getAncestorOfClass(GieliDashPanel.class, anchor);
+		plugin.fetchProfile(name, profile ->
+		{
+			Component target = anchor.isShowing() ? anchor
+				: (stable != null && stable.isShowing() ? stable : null);
+			if (target != null)
+			{
+				show(target, profile);
+			}
+		});
+	}
+
 	/** Swing EDT only. */
 	public static void show(Component anchor, Profile p)
 	{
+		if (!anchor.isShowing())
+		{
+			return;
+		}
 		JPanel card = new JPanel(new DynamicGridLayout(0, 1, 0, 3));
 		card.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		card.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
