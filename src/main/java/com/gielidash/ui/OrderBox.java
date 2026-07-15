@@ -92,11 +92,29 @@ class OrderBox extends JPanel
 		body.add(requester);
 		add(body, BorderLayout.CENTER);
 
+		// Skill-total world I can't enter: warn, and don't offer Accept
+		boolean locked = order.getLockedRequirement() != null;
+		if (locked)
+		{
+			JLabel warning = new JLabel("Requires " + order.getLockedRequirement() + "+ total to enter world");
+			warning.setFont(FontManager.getRunescapeSmallFont());
+			warning.setForeground(ColorScheme.PROGRESS_ERROR_COLOR);
+			body.add(warning);
+		}
+
 		// Accept (and for requests, Decline) - plugin-panel actions, never game actions
 		JButton accept = bottomButton("Accept order", ColorScheme.BRAND_ORANGE, () -> onAccept.accept(order));
 		if (onDecline == null)
 		{
-			add(accept, BorderLayout.SOUTH);
+			if (!locked)
+			{
+				add(accept, BorderLayout.SOUTH);
+			}
+		}
+		else if (locked)
+		{
+			add(bottomButton("Decline", ColorScheme.LIGHT_GRAY_COLOR, () -> onDecline.accept(order)),
+				BorderLayout.SOUTH);
 		}
 		else
 		{

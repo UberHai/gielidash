@@ -90,6 +90,9 @@ public class GieliDashPlugin extends Plugin
 	@Inject
 	private EventBus eventBus;
 
+	@Inject
+	private net.runelite.client.game.WorldService worldService;
+
 	private GieliDashPanel panel;
 	private NavigationButton navButton;
 	private BufferedImage pinIcon;
@@ -109,6 +112,9 @@ public class GieliDashPlugin extends Plugin
 	/** For panel-side guards (EDT can't touch Client). */
 	@Getter
 	private volatile boolean loggedIn;
+
+	/** Cached on GameTick for off-thread total-world checks. */
+	private volatile int myTotalLevel;
 
 	private WorldMapPoint mapPoint;
 	private WorldMapPoint counterpartPoint;
@@ -184,7 +190,25 @@ public class GieliDashPlugin extends Plugin
 		{
 			lastLocation = client.getLocalPlayer().getWorldLocation();
 			lastWorld = client.getWorld();
+			myTotalLevel = client.getTotalLevel();
 		}
+	}
+
+	/** Total level needed to enter a world (0 = open to everyone). Any thread. */
+	private int worldTotalRequirement(int worldId)
+	{
+		net.runelite.http.api.worlds.WorldResult worlds = worldService.getWorlds();
+		if (worlds == null)
+		{
+			return 0;
+		}
+		net.runelite.http.api.worlds.World world = worlds.findWorld(worldId);
+		if (world == null || !world.getTypes().contains(net.runelite.http.api.worlds.WorldType.SKILL_TOTAL))
+		{
+			return 0;
+		}
+		java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(world.getActivity());
+		return m.find() ? Integer.parseInt(m.group(1)) : 0;
 	}
 
 	/** Poll everything (one /sync round trip) while sync is on. */
@@ -206,11 +230,38 @@ public class GieliDashPlugin extends Plugin
 		try
 		{
 			ApiClient.SyncResponse s = api.sync();
-			List<Order> open = s.orders;
 			List<Order> mine = s.mine;
 			List<Order> requests = s.requests;
 			List<com.gielidash.api.DasherPost> posts = s.posts;
 			com.gielidash.api.Metrics metrics = s.metrics;
+
+			// Skill-total worlds: flag (requests) or hide (board) what I can't enter
+			int total = myTotalLevel;
+			int hidden = 0;
+			List<Order> open = new java.util.ArrayList<>();
+			for (Order order : s.orders)
+			{
+				int required = worldTotalRequirement(order.getWorld());
+				if (total > 0 && required > total)
+				{
+					if (config.hideLockedWorlds())
+					{
+						hidden++;
+						continue;
+					}
+					order.setLockedRequirement(required);
+				}
+				open.add(order);
+			}
+			for (Order request : requests)
+			{
+				int required = worldTotalRequirement(request.getWorld());
+				if (total > 0 && required > total)
+				{
+					request.setLockedRequirement(required);
+				}
+			}
+			final int hiddenCount = hidden;
 
 			Order next = mine.stream().filter(Order::isActive).findFirst().orElse(null);
 			updateActiveOrder(next);
@@ -242,7 +293,7 @@ public class GieliDashPlugin extends Plugin
 						panel.setPosts(posts);
 						panel.setMetrics(metrics);
 						panel.setSyncStatus(requests.isEmpty()
-							? open.size() + " open"
+							? open.size() + " open" + (hiddenCount > 0 ? " · " + hiddenCount + " locked" : "")
 							: requests.size() + (requests.size() == 1 ? " request!" : " requests!"));
 					}
 				});
@@ -393,7 +444,9 @@ public class GieliDashPlugin extends Plugin
 				{
 					int id = api.createOrder(items, location.getX(), location.getY(),
 						location.getPlane(), world, feeGp, null, directedTo);
-					callback.accept("#" + id);
+					int required = worldTotalRequirement(world);
+					callback.accept("#" + id + (required > 0
+						? " (world needs " + required + "+ total)" : ""));
 					pollOrders();
 				}
 				catch (ApiException e)

@@ -68,6 +68,9 @@ public class Order
 	/** GE cost of the items, computed client-side ON THE CLIENT THREAD during polls. */
 	private transient Long frontCostGp;
 
+	/** Set when this order's world needs more total level than I have (e.g. 1500). */
+	private transient Integer lockedRequirement;
+
 	public boolean isTerminal()
 	{
 		return "delivered".equals(status) || "failed".equals(status) || "cancelled".equals(status);

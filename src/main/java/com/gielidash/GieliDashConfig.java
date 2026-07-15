@@ -45,6 +45,17 @@ public interface GieliDashConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "hideLockedWorlds",
+		name = "Hide locked total worlds",
+		description = "Hide orders posted on skill-total worlds (1250/1500/2000...) your total level can't enter.",
+		position = 3
+	)
+	default boolean hideLockedWorlds()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 		keyName = "baseUrlOverride",
 		name = "Server URL override",
 		description = "Point the plugin at a self-hosted GieliDash server. Leave blank for the official one.",
