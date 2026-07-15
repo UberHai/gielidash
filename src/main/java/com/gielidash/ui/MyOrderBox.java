@@ -143,10 +143,7 @@ class MyOrderBox extends JPanel
 		}
 		if (!isTerminal(order.getStatus()))
 		{
-			// A dasher bailing on an active order re-posts it rather than killing it
-			String cancelLabel = isDasher && !"open".equals(order.getStatus())
-				? "Cancel (re-posts)" : "Cancel";
-			actions.add(actionButton(cancelLabel, ColorScheme.LIGHT_GRAY_COLOR,
+			actions.add(actionButton("Cancel", ColorScheme.LIGHT_GRAY_COLOR,
 				() -> plugin.cancelOrder(order)));
 		}
 		if (showFeeNudge)
