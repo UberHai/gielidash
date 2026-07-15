@@ -96,6 +96,12 @@ public class GieliDashPlugin extends Plugin
 	@Inject
 	private net.runelite.client.Notifier notifier;
 
+	@Inject
+	private ConfigManager configManager;
+
+	@Inject
+	private com.google.gson.Gson gson;
+
 	private GieliDashPanel panel;
 	private NavigationButton navButton;
 	private BufferedImage pinIcon;
@@ -336,6 +342,7 @@ public class GieliDashPlugin extends Plugin
 				{
 					if (panel != null)
 					{
+						panel.setMarket(s.market);
 						panel.setOrders(open);
 						panel.setMyOrders(mine);
 						panel.setRequests(requests);
@@ -432,6 +439,11 @@ public class GieliDashPlugin extends Plugin
 					notifier.notify("GieliDash: " + before.getDirectedTo()
 						+ " declined - order #" + now.getId() + " is now public");
 				}
+				else if (before.isActive() && "open".equals(now.getStatus()))
+				{
+					notifier.notify("GieliDash: your dasher bailed - order #"
+						+ now.getId() + " was re-posted");
+				}
 			}
 		}
 		prevMine = mineNow;
@@ -461,10 +473,119 @@ public class GieliDashPlugin extends Plugin
 		return lastWorld;
 	}
 
-	/** Called from the panel (EDT). Claims an order off-thread, then refreshes. */
+	// ---- Presets ("CoX kit") + favorite dashers, persisted in plugin config ----
+
+	public List<com.gielidash.api.Preset> getPresets()
+	{
+		String json = configManager.getConfiguration(GieliDashConfig.GROUP, "presets");
+		if (json == null || json.isEmpty())
+		{
+			return new java.util.ArrayList<>();
+		}
+		try
+		{
+			com.gielidash.api.Preset[] presets = gson.fromJson(json, com.gielidash.api.Preset[].class);
+			return new java.util.ArrayList<>(java.util.Arrays.asList(presets));
+		}
+		catch (com.google.gson.JsonSyntaxException e)
+		{
+			return new java.util.ArrayList<>();
+		}
+	}
+
+	/** Newest first, capped at 8 (oldest evicted). */
+	public void savePreset(com.gielidash.api.Preset preset)
+	{
+		List<com.gielidash.api.Preset> presets = getPresets();
+		presets.removeIf(p -> p.getName().equals(preset.getName()));
+		presets.add(0, preset);
+		while (presets.size() > 8)
+		{
+			presets.remove(presets.size() - 1);
+		}
+		configManager.setConfiguration(GieliDashConfig.GROUP, "presets", gson.toJson(presets));
+	}
+
+	/** Loads a preset into the Create basket with fresh GE prices (client thread). */
+	public void loadPreset(com.gielidash.api.Preset preset)
+	{
+		clientThread.invokeLater(() ->
+		{
+			Map<Integer, Long> prices = new HashMap<>();
+			for (OrderItem item : preset.getItems())
+			{
+				prices.put(item.getId(), (long) itemManager.getItemPrice(item.getId()));
+			}
+			SwingUtilities.invokeLater(() ->
+			{
+				if (panel != null)
+				{
+					panel.loadPreset(preset, prices);
+				}
+			});
+		});
+	}
+
+	public java.util.Set<String> getFavorites()
+	{
+		String csv = configManager.getConfiguration(GieliDashConfig.GROUP, "favorites");
+		java.util.Set<String> favorites = new java.util.LinkedHashSet<>();
+		if (csv != null && !csv.isEmpty())
+		{
+			for (String name : csv.split("\n"))
+			{
+				if (!name.isEmpty())
+				{
+					favorites.add(name);
+				}
+			}
+		}
+		return favorites;
+	}
+
+	public boolean isFavorite(String name)
+	{
+		return getFavorites().contains(name);
+	}
+
+	public void toggleFavorite(String name)
+	{
+		java.util.Set<String> favorites = getFavorites();
+		if (!favorites.remove(name))
+		{
+			favorites.add(name);
+		}
+		configManager.setConfiguration(GieliDashConfig.GROUP, "favorites",
+			String.join("\n", favorites));
+	}
+
+	/**
+	 * Called from the panel (EDT). Computes the ETA commitment from my position
+	 * (straight-line x1.5 + 60s, floor 2 min; 8 min default cross-world), then
+	 * claims off-thread.
+	 */
 	public void acceptOrder(Order order)
 	{
-		runApi("accept", () -> api.acceptOrder(order.getId()));
+		clientThread.invokeLater(() ->
+		{
+			int eta = 480;
+			WorldPoint me = lastLocation;
+			if (me != null && order.getWorld() == lastWorld)
+			{
+				int tiles = me.distanceTo2D(new WorldPoint(
+					order.getDestX(), order.getDestY(), order.getDestPlane()));
+				eta = Math.max(120, (int) (tiles * 0.3 * 1.5) + 60);
+			}
+			final int commitment = eta;
+			runApi("accept", () -> api.acceptOrder(order.getId(), commitment));
+		});
+	}
+
+	/** Called from the Mine tab's fee nudge (EDT). Bumps the fee by 25% (min +1K). */
+	public void raiseFee(Order order)
+	{
+		long newFee = Math.max(order.getFeeGp() + 1000, (long) (order.getFeeGp() * 1.25));
+		runApi("raise fee", () -> api.raiseFee(order.getId(), newFee));
 	}
 
 	/** Called from the Requests tab (EDT). Sends the order to the public board. */

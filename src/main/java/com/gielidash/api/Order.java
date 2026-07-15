@@ -51,6 +51,15 @@ public class Order
 	/** Dasher this open order is reserved for - /orders/mine only. */
 	@SerializedName("directed_to")
 	private String directedTo;
+	/** ETA the dasher committed to at accept (seconds), null when uncommitted. */
+	@SerializedName("eta_seconds")
+	private Integer etaSeconds;
+	/** Server-computed seconds until the commitment blows (negative = blown). */
+	@SerializedName("eta_remaining")
+	private Integer etaRemaining;
+	/** Server-computed order age in seconds. */
+	@SerializedName("age_seconds")
+	private Integer ageSeconds;
 	/** "requester" or "dasher" - only present on /orders/mine responses. */
 	private String role;
 	/** Stars I already gave on this order - /orders/mine only, null if unrated. */

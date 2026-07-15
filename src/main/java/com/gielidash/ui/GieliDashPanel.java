@@ -38,6 +38,7 @@ public class GieliDashPanel extends PluginPanel
 	private javax.swing.JComboBox<String> sortCombo;
 	private javax.swing.JCheckBox myWorldBox;
 	private List<Order> lastOpen = java.util.List.of();
+	private com.gielidash.api.ApiClient.Market market;
 
 	public GieliDashPanel(GieliDashPlugin plugin, ItemManager itemManager)
 	{
@@ -221,6 +222,13 @@ public class GieliDashPanel extends PluginPanel
 		requestsList.repaint();
 	}
 
+	/** Swing EDT only. Market pulse feeds the Create tab line + the fee nudge. */
+	public void setMarket(com.gielidash.api.ApiClient.Market market)
+	{
+		this.market = market;
+		createPanel.setMarket(market);
+	}
+
 	/** Swing EDT only. */
 	public void setMyOrders(List<Order> orders)
 	{
@@ -231,9 +239,16 @@ public class GieliDashPanel extends PluginPanel
 		}
 		else
 		{
+			boolean marketBusy = market != null && market.onlineDashers >= 3;
 			for (Order order : orders)
 			{
-				mineList.add(new MyOrderBox(order, plugin));
+				// Fee nudge: my public order, unclaimed for 10+ min, with dashers around
+				boolean nudge = marketBusy
+					&& "requester".equals(order.getRole())
+					&& "open".equals(order.getStatus())
+					&& order.getDirectedTo() == null
+					&& order.getAgeSeconds() != null && order.getAgeSeconds() >= 600;
+				mineList.add(new MyOrderBox(order, plugin, nudge));
 			}
 		}
 		mineList.revalidate();
@@ -269,6 +284,14 @@ public class GieliDashPanel extends PluginPanel
 	public void reorderInto(List<com.gielidash.api.OrderItem> items, java.util.Map<Integer, Long> prices)
 	{
 		createPanel.loadBasket(items, prices);
+		tabGroup.select(createTab);
+	}
+
+	/** Swing EDT only. Load a saved preset into the Create tab. */
+	public void loadPreset(com.gielidash.api.Preset preset, java.util.Map<Integer, Long> prices)
+	{
+		createPanel.loadBasket(preset.getItems(), prices);
+		createPanel.setFee(preset.getFeeGp());
 		tabGroup.select(createTab);
 	}
 }

@@ -118,6 +118,21 @@ class DeliveryOverlay extends OverlayPanel
 			}
 		}
 
+		// The dasher's ETA commitment countdown (both roles care)
+		if (order.isActive() && order.getEtaRemaining() != null)
+		{
+			int left = order.getEtaRemaining();
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left("Commit:")
+				.right(left >= 0
+					? String.format("%d:%02d left", left / 60, left % 60)
+					: "blown")
+				.rightColor(left >= 0
+					? ColorScheme.PROGRESS_INPROGRESS_COLOR
+					: ColorScheme.PROGRESS_ERROR_COLOR)
+				.build());
+		}
+
 		return super.render(graphics);
 	}
 

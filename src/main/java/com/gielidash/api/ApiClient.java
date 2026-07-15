@@ -143,6 +143,13 @@ public class ApiClient
 		public List<Order> requests;
 		public List<DasherPost> posts;
 		public Metrics metrics;
+		public Market market;
+	}
+
+	public static class Market
+	{
+		public Integer avgAcceptSeconds;
+		public int onlineDashers;
 	}
 
 	public void createPost(String message, @Nullable String feeNote)
@@ -166,9 +173,16 @@ public class ApiClient
 		), SimpleResponse.class, true);
 	}
 
-	public void acceptOrder(int id)
+	public void acceptOrder(int id, @Nullable Integer etaSeconds)
 	{
-		post("/orders/" + id + "/accept", Map.of(), SimpleResponse.class, true);
+		post("/orders/" + id + "/accept",
+			etaSeconds == null ? Map.of() : Map.of("etaSeconds", etaSeconds),
+			SimpleResponse.class, true);
+	}
+
+	public void raiseFee(int id, long feeGp)
+	{
+		post("/orders/" + id + "/fee", Map.of("feeGp", feeGp), SimpleResponse.class, true);
 	}
 
 	public void updateStatus(int id, String status)

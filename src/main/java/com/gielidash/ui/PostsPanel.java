@@ -155,9 +155,20 @@ public class PostsPanel extends JPanel
 		}
 		if (!post.mine())
 		{
-			// This Dasher is online right now - route an order directly to them
-			JButton order = actionButton("Order now", () -> orderFromDasher.accept(post.getDasherName()));
-			south.add(order, BorderLayout.EAST);
+			// This Dasher is online right now - route an order directly to them,
+			// or star them as a favorite for one-click direct orders later
+			JPanel actions = new JPanel(new java.awt.GridLayout(1, 2, 4, 0));
+			actions.setOpaque(false);
+			JButton star = actionButton(plugin.isFavorite(post.getDasherName()) ? "★" : "☆", () -> {});
+			star.setToolTipText("Favorite this dasher");
+			star.addActionListener(e ->
+			{
+				plugin.toggleFavorite(post.getDasherName());
+				star.setText(plugin.isFavorite(post.getDasherName()) ? "★" : "☆");
+			});
+			actions.add(star);
+			actions.add(actionButton("Order now", () -> orderFromDasher.accept(post.getDasherName())));
+			south.add(actions, BorderLayout.EAST);
 		}
 		box.add(south, BorderLayout.SOUTH);
 		return box;

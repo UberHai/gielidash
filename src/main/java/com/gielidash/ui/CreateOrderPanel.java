@@ -48,7 +48,11 @@ class CreateOrderPanel extends JPanel
 	private final JLabel estimateLabel = new JLabel(" ");
 	private final JLabel statusLabel = new JLabel(" ");
 	private final JLabel directedLabel = new JLabel(" ");
+	private final JLabel marketLabel = new JLabel(" ");
+	private final javax.swing.JComboBox<String> presetCombo = new javax.swing.JComboBox<>();
+	private final JPanel favoritesRow = new JPanel(new java.awt.GridLayout(1, 0, 4, 0));
 	private String directedTo;
+	private boolean presetComboRefreshing;
 
 	CreateOrderPanel(GieliDashPlugin plugin, ItemManager itemManager)
 	{
@@ -150,6 +154,131 @@ class CreateOrderPanel extends JPanel
 		statusLabel.setFont(FontManager.getRunescapeSmallFont());
 		statusLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		add(statusLabel);
+
+		// Market pulse ("Orders accepted in ~2m lately")
+		marketLabel.setFont(FontManager.getRunescapeSmallFont());
+		marketLabel.setForeground(ColorScheme.MEDIUM_GRAY_COLOR);
+		add(marketLabel);
+
+		// Presets: save the current basket+fee, reload with one click
+		presetCombo.setFont(FontManager.getRunescapeSmallFont());
+		presetCombo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		presetCombo.setForeground(ColorScheme.TEXT_COLOR);
+		presetCombo.setFocusable(false);
+		presetCombo.addActionListener(e ->
+		{
+			if (presetComboRefreshing || presetCombo.getSelectedIndex() <= 0)
+			{
+				return;
+			}
+			java.util.List<com.gielidash.api.Preset> presets = plugin.getPresets();
+			int index = presetCombo.getSelectedIndex() - 1;
+			if (index < presets.size())
+			{
+				plugin.loadPreset(presets.get(index));
+			}
+		});
+		JButton savePreset = new JButton("Save");
+		savePreset.setFont(FontManager.getRunescapeSmallFont());
+		savePreset.setFocusPainted(false);
+		savePreset.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
+		savePreset.setForeground(ColorScheme.BRAND_ORANGE);
+		savePreset.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+		savePreset.addActionListener(e -> saveCurrentAsPreset());
+		JPanel presetRow = new JPanel(new BorderLayout(6, 0));
+		presetRow.setOpaque(false);
+		presetRow.add(presetCombo, BorderLayout.CENTER);
+		presetRow.add(savePreset, BorderLayout.EAST);
+		add(presetRow);
+		refreshPresetCombo();
+
+		// Favorite dashers: one-click direct ordering
+		favoritesRow.setOpaque(false);
+		add(favoritesRow);
+		refreshFavorites();
+	}
+
+	private void saveCurrentAsPreset()
+	{
+		if (basket.isEmpty())
+		{
+			setStatus("Add items before saving a preset", true);
+			return;
+		}
+		long fee;
+		try
+		{
+			fee = Long.parseLong(feeField.getText().trim().replace(",", ""));
+		}
+		catch (NumberFormatException e)
+		{
+			fee = 0;
+		}
+		String name = basket.get(0).getName()
+			+ (basket.size() > 1 ? " +" + (basket.size() - 1) : "");
+		plugin.savePreset(new com.gielidash.api.Preset(name, fee, new ArrayList<>(basket)));
+		refreshPresetCombo();
+		setStatus("Preset '" + name + "' saved", false);
+	}
+
+	private void refreshPresetCombo()
+	{
+		presetComboRefreshing = true;
+		presetCombo.removeAllItems();
+		presetCombo.addItem("Presets...");
+		for (com.gielidash.api.Preset preset : plugin.getPresets())
+		{
+			presetCombo.addItem(preset.getName());
+		}
+		presetCombo.setSelectedIndex(0);
+		presetComboRefreshing = false;
+	}
+
+	private void refreshFavorites()
+	{
+		favoritesRow.removeAll();
+		int shown = 0;
+		for (String name : plugin.getFavorites())
+		{
+			if (shown++ >= 4)
+			{
+				break;
+			}
+			JButton favorite = new JButton("★ " + name);
+			favorite.setFont(FontManager.getRunescapeSmallFont());
+			favorite.setFocusPainted(false);
+			favorite.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+			favorite.setForeground(ColorScheme.BRAND_ORANGE);
+			favorite.setBorder(BorderFactory.createEmptyBorder(3, 6, 3, 6));
+			favorite.setToolTipText("Direct your next order to " + name);
+			favorite.addActionListener(e -> setDirectedTo(name));
+			favoritesRow.add(favorite);
+		}
+		favoritesRow.setVisible(shown > 0);
+		favoritesRow.revalidate();
+		favoritesRow.repaint();
+	}
+
+	/** Swing EDT only. Called on every poll. */
+	void setMarket(com.gielidash.api.ApiClient.Market market)
+	{
+		if (market == null || market.avgAcceptSeconds == null)
+		{
+			marketLabel.setText(" ");
+		}
+		else
+		{
+			int s = market.avgAcceptSeconds;
+			marketLabel.setText("Orders accepted in ~" + (s / 60) + "m " + (s % 60)
+				+ "s lately · " + market.onlineDashers + " online");
+		}
+		refreshFavorites();
+	}
+
+	/** Swing EDT only. */
+	void setFee(long feeGp)
+	{
+		feeField.setText(String.valueOf(feeGp));
 	}
 
 	private JLabel smallLabel(String text)

@@ -19,7 +19,7 @@ import net.runelite.client.ui.FontManager;
  */
 class MyOrderBox extends JPanel
 {
-	MyOrderBox(Order order, GieliDashPlugin plugin)
+	MyOrderBox(Order order, GieliDashPlugin plugin, boolean showFeeNudge)
 	{
 		boolean isDasher = "dasher".equals(order.getRole());
 
@@ -98,6 +98,20 @@ class MyOrderBox extends JPanel
 		meta.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		body.add(meta);
 
+		// ETA commitment countdown on active orders
+		if (order.isActive() && order.getEtaRemaining() != null)
+		{
+			int left = order.getEtaRemaining();
+			JLabel eta = new JLabel(left >= 0
+				? "ETA: " + (left / 60) + ":" + String.format("%02d", left % 60) + " left"
+				: "ETA blown " + (-left / 60) + "m ago");
+			eta.setFont(FontManager.getRunescapeSmallFont());
+			eta.setForeground(left >= 0
+				? ColorScheme.PROGRESS_INPROGRESS_COLOR
+				: ColorScheme.PROGRESS_ERROR_COLOR);
+			body.add(eta);
+		}
+
 		// Delivery duration (accept -> delivered), from server timestamps
 		String duration = formatDuration(order.getClaimedAt(), order.getCompletedAt());
 		if ("delivered".equals(order.getStatus()) && duration != null)
@@ -129,8 +143,17 @@ class MyOrderBox extends JPanel
 		}
 		if (!isTerminal(order.getStatus()))
 		{
-			actions.add(actionButton("Cancel", ColorScheme.LIGHT_GRAY_COLOR,
+			// A dasher bailing on an active order re-posts it rather than killing it
+			String cancelLabel = isDasher && !"open".equals(order.getStatus())
+				? "Cancel (re-posts)" : "Cancel";
+			actions.add(actionButton(cancelLabel, ColorScheme.LIGHT_GRAY_COLOR,
 				() -> plugin.cancelOrder(order)));
+		}
+		if (showFeeNudge)
+		{
+			actions.add(Box.createHorizontalStrut(6));
+			actions.add(actionButton("Raise fee +25%", ColorScheme.GRAND_EXCHANGE_PRICE,
+				() -> plugin.raiseFee(order)));
 		}
 		// One-click repost of a finished order I requested
 		if (isTerminal(order.getStatus()) && !isDasher)
