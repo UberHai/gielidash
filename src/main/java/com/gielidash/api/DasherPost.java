@@ -7,9 +7,24 @@ import lombok.Data;
 public class DasherPost
 {
 	private int id;
+	/** Whitelisted service type ("Food & potions") - no free text. */
 	private String message;
+	private String region;
+	/** Numeric base fee as a string. */
 	@SerializedName("fee_note")
 	private String feeNote;
+
+	public long baseFeeGp()
+	{
+		try
+		{
+			return Long.parseLong(feeNote);
+		}
+		catch (NumberFormatException | NullPointerException e)
+		{
+			return 0;
+		}
+	}
 	@SerializedName("dasher_name")
 	private String dasherName;
 	@SerializedName("dasher_combat")

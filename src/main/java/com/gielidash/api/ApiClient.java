@@ -152,10 +152,10 @@ public class ApiClient
 		public int onlineDashers;
 	}
 
-	public void createPost(String message, @Nullable String feeNote)
+	public void createPost(String service, String region, long baseFeeGp)
 	{
 		post("/posts", Map.of(
-			"message", message, "feeNote", feeNote == null ? "" : feeNote
+			"service", service, "region", region, "baseFeeGp", baseFeeGp
 		), SimpleResponse.class, true);
 	}
 

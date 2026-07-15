@@ -20,11 +20,17 @@ import net.runelite.client.ui.components.PluginErrorPanel;
  */
 public class PostsPanel extends JPanel
 {
+	private static final String[] SERVICES = {"Anything", "Food & potions", "Runes & ammo",
+		"Gear & supplies", "Skilling materials"};
+	private static final String[] REGIONS = {"Anywhere", "Misthalin", "Asgarnia", "Kandarin",
+		"Morytania", "Kharidian Desert", "Fremennik", "Tirannwn", "Kourend", "Varlamore", "Wilderness"};
+
 	private final GieliDashPlugin plugin;
 	private final java.util.function.Consumer<String> orderFromDasher;
 	private final JPanel postsList = new JPanel();
 	private final PluginErrorPanel emptyPosts = new PluginErrorPanel();
-	private final FlatTextField messageField = new FlatTextField();
+	private final javax.swing.JComboBox<String> serviceCombo = new javax.swing.JComboBox<>(SERVICES);
+	private final javax.swing.JComboBox<String> regionCombo = new javax.swing.JComboBox<>(REGIONS);
 	private final FlatTextField feeField = new FlatTextField();
 	private final JLabel statusLabel = new JLabel(" ");
 
@@ -43,18 +49,21 @@ public class PostsPanel extends JPanel
 		header.setForeground(ColorScheme.BRAND_ORANGE);
 		add(header);
 
-		add(smallLabel("What you deliver (and where)"));
-		messageField.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		messageField.setPreferredSize(new Dimension(0, 30));
-		messageField.getTextField().setFont(FontManager.getRunescapeSmallFont());
-		messageField.getTextField().setToolTipText("e.g. 'Food + potions, anywhere in Kandarin'");
-		add(messageField);
+		// Structured ad - no free text crosses the wire (user-decided)
+		add(smallLabel("What you deliver"));
+		styleCombo(serviceCombo);
+		add(serviceCombo);
 
-		add(smallLabel("Your rate"));
+		add(smallLabel("Where"));
+		styleCombo(regionCombo);
+		add(regionCombo);
+
+		add(smallLabel("Base fee (gp)"));
 		feeField.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		feeField.setPreferredSize(new Dimension(0, 30));
 		feeField.getTextField().setFont(FontManager.getRunescapeSmallFont());
-		feeField.getTextField().setToolTipText("e.g. '50k base + 10k per region'");
+		feeField.getTextField().setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
+		NumericField.apply(feeField.getTextField());
 		add(feeField);
 
 		JPanel buttons = new JPanel(new DynamicGridLayout(1, 2, 6, 0));
@@ -76,19 +85,29 @@ public class PostsPanel extends JPanel
 		add(postsList);
 	}
 
+	private void styleCombo(javax.swing.JComboBox<String> combo)
+	{
+		combo.setFont(FontManager.getRunescapeSmallFont());
+		combo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		combo.setForeground(ColorScheme.TEXT_COLOR);
+		combo.setFocusable(false);
+	}
+
 	private void submit()
 	{
-		String message = messageField.getText() == null ? "" : messageField.getText().trim();
-		if (message.isEmpty())
+		long baseFee;
+		try
 		{
-			statusLabel.setText("Write what you deliver first");
+			baseFee = Long.parseLong(feeField.getText().trim());
+		}
+		catch (NumberFormatException e)
+		{
+			statusLabel.setText("Enter your base fee in gp");
 			return;
 		}
-		String feeNote = feeField.getText() == null ? "" : feeField.getText().trim();
 		statusLabel.setText("Posting...");
-		messageField.setText("");
-		feeField.setText("");
-		plugin.createDasherPost(message, feeNote);
+		plugin.createDasherPost((String) serviceCombo.getSelectedItem(),
+			(String) regionCombo.getSelectedItem(), baseFee);
 	}
 
 	/** Swing EDT only. */
@@ -139,16 +158,17 @@ public class PostsPanel extends JPanel
 		}
 		box.add(who, BorderLayout.NORTH);
 
-		JLabel message = new JLabel("<html>" + post.getMessage() + "</html>");
+		JLabel message = new JLabel(post.getMessage()
+			+ (post.getRegion() != null ? " · " + post.getRegion() : ""));
 		message.setFont(FontManager.getRunescapeSmallFont());
 		message.setForeground(ColorScheme.TEXT_COLOR);
 		box.add(message, BorderLayout.CENTER);
 
 		JPanel south = new JPanel(new BorderLayout());
 		south.setOpaque(false);
-		if (post.getFeeNote() != null && !post.getFeeNote().isEmpty())
+		if (post.baseFeeGp() > 0)
 		{
-			JLabel fee = new JLabel(post.getFeeNote());
+			JLabel fee = new JLabel("from " + Gp.format(post.baseFeeGp()) + " gp");
 			fee.setFont(FontManager.getRunescapeSmallFont());
 			fee.setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
 			south.add(fee, BorderLayout.WEST);

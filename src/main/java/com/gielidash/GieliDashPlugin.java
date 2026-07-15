@@ -633,10 +633,10 @@ public class GieliDashPlugin extends Plugin
 		});
 	}
 
-	/** Called from the Posts tab (EDT). */
-	public void createDasherPost(String message, String feeNote)
+	/** Called from the Posts tab (EDT). Structured values only - no free text. */
+	public void createDasherPost(String service, String region, long baseFeeGp)
 	{
-		runApi("post ad", () -> api.createPost(message, feeNote.isEmpty() ? null : feeNote));
+		runApi("post ad", () -> api.createPost(service, region, baseFeeGp));
 	}
 
 	/** Called from the Posts tab (EDT). */

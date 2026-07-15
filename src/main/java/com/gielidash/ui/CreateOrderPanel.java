@@ -126,6 +126,7 @@ class CreateOrderPanel extends JPanel
 		feeField.setPreferredSize(new Dimension(0, 30));
 		feeField.getTextField().setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
 		feeField.getTextField().setFont(FontManager.getRunescapeFont());
+		NumericField.apply(feeField.getTextField());
 		add(feeField);
 
 
