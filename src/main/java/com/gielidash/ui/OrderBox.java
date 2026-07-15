@@ -80,15 +80,6 @@ class OrderBox extends JPanel
 			body.add(cost);
 		}
 
-		// Requester's note to the dasher
-		if (order.getNotes() != null && !order.getNotes().isEmpty())
-		{
-			JLabel notes = new JLabel("<html>\"" + order.getNotes() + "\"</html>");
-			notes.setFont(FontManager.getRunescapeSmallFont());
-			notes.setForeground(ColorScheme.GRAND_EXCHANGE_ALCH);
-			body.add(notes);
-		}
-
 		// Distance + profitability, when the order is on my world
 		if (order.getDistanceTiles() != null)
 		{

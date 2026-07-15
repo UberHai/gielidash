@@ -274,7 +274,9 @@ public class ApiClient
 		}
 		catch (IOException e)
 		{
-			throw new ApiException("network_error", e);
+			// Include the cause so transient failures are diagnosable from the log
+			throw new ApiException("network_error (" + e.getClass().getSimpleName()
+				+ ": " + e.getMessage() + ")", e);
 		}
 	}
 

@@ -675,7 +675,7 @@ public class GieliDashPlugin extends Plugin
 	 * or a user-facing error message.
 	 */
 	public void createOrderAtMyLocation(List<OrderItem> items, long feeGp,
-		@Nullable String directedTo, @Nullable String notes, Consumer<String> callback)
+		@Nullable String directedTo, Consumer<String> callback)
 	{
 		clientThread.invokeLater(() ->
 		{
@@ -692,7 +692,7 @@ public class GieliDashPlugin extends Plugin
 				try
 				{
 					int id = api.createOrder(items, location.getX(), location.getY(),
-						location.getPlane(), world, feeGp, notes, directedTo);
+						location.getPlane(), world, feeGp, null, directedTo);
 					int required = worldTotalRequirement(world);
 					callback.accept("#" + id + (required > 0
 						? " (world needs " + required + "+ total)" : ""));
