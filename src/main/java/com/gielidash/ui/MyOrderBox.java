@@ -60,6 +60,14 @@ class MyOrderBox extends JPanel
 		items.setForeground(ColorScheme.TEXT_COLOR);
 		body.add(items);
 
+		if (order.getNotes() != null && !order.getNotes().isEmpty())
+		{
+			JLabel notes = new JLabel("<html>\"" + order.getNotes() + "\"</html>");
+			notes.setFont(FontManager.getRunescapeSmallFont());
+			notes.setForeground(ColorScheme.GRAND_EXCHANGE_ALCH);
+			body.add(notes);
+		}
+
 		// Two short lines instead of one long one - the panel is only 225px (live-test finding)
 		String counterpartStars = isDasher
 			? Stars.format(order.getRequesterStars(), order.getRequesterRatingCount())

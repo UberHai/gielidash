@@ -45,6 +45,7 @@ class CreateOrderPanel extends JPanel
 	private final JPanel basketList = new JPanel(new DynamicGridLayout(0, 1, 0, 2));
 	private final IconTextField searchField = new IconTextField();
 	private final FlatTextField feeField = new FlatTextField();
+	private final FlatTextField notesField = new FlatTextField();
 	private final JLabel estimateLabel = new JLabel(" ");
 	private final JLabel statusLabel = new JLabel(" ");
 	private final JLabel directedLabel = new JLabel(" ");
@@ -127,6 +128,13 @@ class CreateOrderPanel extends JPanel
 		feeField.getTextField().setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
 		feeField.getTextField().setFont(FontManager.getRunescapeFont());
 		add(feeField);
+
+		add(smallLabel("Note for the dasher (optional)"));
+		notesField.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		notesField.setPreferredSize(new Dimension(0, 30));
+		notesField.getTextField().setFont(FontManager.getRunescapeSmallFont());
+		notesField.getTextField().setToolTipText("e.g. 'North side of the bank', 'I'm by the rats'");
+		add(notesField);
 
 		JButton submit = new JButton("Post order at my location");
 		submit.setFont(FontManager.getRunescapeSmallFont());
@@ -539,14 +547,16 @@ class CreateOrderPanel extends JPanel
 			return;
 		}
 
+		String notes = notesField.getText() == null ? "" : notesField.getText().trim();
 		setStatus("Posting order...", false);
-		plugin.createOrderAtMyLocation(new ArrayList<>(basket), fee, directedTo, result ->
+		plugin.createOrderAtMyLocation(new ArrayList<>(basket), fee, directedTo, notes, result ->
 			SwingUtilities.invokeLater(() ->
 			{
 				if (result.startsWith("#"))
 				{
 					basket.clear();
 					feeField.setText("");
+					notesField.setText("");
 					rebuildBasket();
 					setStatus("Order " + result + " posted", false);
 					setDirectedTo(null);
