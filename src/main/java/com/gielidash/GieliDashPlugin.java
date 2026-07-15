@@ -210,6 +210,22 @@ public class GieliDashPlugin extends Plugin
 		}
 	}
 
+	/**
+	 * Item names come from the LOCAL game cache, never the server - no
+	 * player-authored text can reach the UI. Client thread only.
+	 */
+	private void resolveItemName(OrderItem item)
+	{
+		try
+		{
+			item.setName(itemManager.getItemComposition(item.getId()).getName());
+		}
+		catch (RuntimeException e)
+		{
+			item.setName("Item " + item.getId());
+		}
+	}
+
 	/** Total level needed to enter a world (0 = open to everyone). Any thread. */
 	private int worldTotalRequirement(int worldId)
 	{
@@ -304,13 +320,14 @@ public class GieliDashPlugin extends Plugin
 			{
 				WorldPoint me = lastLocation;
 				int myWorld = lastWorld;
-				for (List<Order> list : List.of(open, requests))
+				for (List<Order> list : List.of(open, requests, mine))
 				{
 					for (Order order : list)
 					{
 						long cost = 0;
 						for (OrderItem item : order.getItems())
 						{
+							resolveItemName(item);
 							cost += (long) itemManager.getItemPrice(item.getId()) * item.getQty();
 						}
 						order.setFrontCostGp(cost);
@@ -514,6 +531,7 @@ public class GieliDashPlugin extends Plugin
 			Map<Integer, Long> prices = new HashMap<>();
 			for (OrderItem item : preset.getItems())
 			{
+				resolveItemName(item);
 				prices.put(item.getId(), (long) itemManager.getItemPrice(item.getId()));
 			}
 			SwingUtilities.invokeLater(() ->
@@ -621,6 +639,7 @@ public class GieliDashPlugin extends Plugin
 			Map<Integer, Long> prices = new HashMap<>();
 			for (OrderItem item : items)
 			{
+				resolveItemName(item);
 				prices.put(item.getId(), (long) itemManager.getItemPrice(item.getId()));
 			}
 			SwingUtilities.invokeLater(() ->

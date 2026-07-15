@@ -1,13 +1,19 @@
 package com.gielidash.api;
 
 import lombok.AllArgsConstructor;
-import lombok.Value;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Value
+/**
+ * name is CLIENT-RESOLVED from the game's item cache - the server stores and
+ * returns only {id, qty} so no player-authored text can ride along.
+ */
+@Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class OrderItem
 {
-	int id;
-	int qty;
-	String name;
+	private int id;
+	private int qty;
+	private transient String name;
 }
