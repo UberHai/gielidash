@@ -147,16 +147,28 @@ public class ApiClient
 		post("/orders/" + id + "/cancel", Map.of("reason", reason), SimpleResponse.class, true);
 	}
 
-	public int createOrder(List<OrderItem> items, int x, int y, int plane, int world, long feeGp, @Nullable String notes)
+	public int createOrder(List<OrderItem> items, int x, int y, int plane, int world, long feeGp,
+		@Nullable String notes, @Nullable String directedToName)
 	{
 		CreateResponse resp = post("/orders", Map.of(
 			"items", items,
 			"dest", Map.of("x", x, "y", y, "plane", plane),
 			"world", world,
 			"feeGp", feeGp,
-			"notes", notes == null ? "" : notes
+			"notes", notes == null ? "" : notes,
+			"directedToName", directedToName == null ? "" : directedToName
 		), CreateResponse.class, true);
 		return resp.id;
+	}
+
+	public List<Order> getRequests()
+	{
+		return get("/orders/requests", OrdersResponse.class).orders;
+	}
+
+	public void declineOrder(int id)
+	{
+		post("/orders/" + id + "/decline", Map.of(), SimpleResponse.class, true);
 	}
 
 	private String baseUrl()

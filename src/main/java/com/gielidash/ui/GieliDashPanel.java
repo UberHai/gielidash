@@ -23,8 +23,10 @@ public class GieliDashPanel extends PluginPanel
 {
 	private final JPanel ordersList = new JPanel();
 	private final JPanel mineList = new JPanel();
+	private final JPanel requestsList = new JPanel();
 	private final PluginErrorPanel emptyOrders = new PluginErrorPanel();
 	private final PluginErrorPanel emptyMine = new PluginErrorPanel();
+	private final PluginErrorPanel emptyRequests = new PluginErrorPanel();
 	private final JLabel syncStatus = new JLabel(" ");
 	private final GieliDashPlugin plugin;
 	private final ItemManager itemManager;
@@ -59,17 +61,23 @@ public class GieliDashPanel extends PluginPanel
 		tabGroup = new MaterialTabGroup(display);
 
 		createPanel = new CreateOrderPanel(plugin, itemManager);
-		postsPanel = new PostsPanel(plugin, () -> tabGroup.select(createTab));
+		postsPanel = new PostsPanel(plugin, dasherName ->
+		{
+			createPanel.setDirectedTo(dasherName);
+			tabGroup.select(createTab);
+		});
 		metricsPanel = new MetricsPanel();
 		MaterialTab ordersTab = new MaterialTab("Orders", tabGroup, buildOrdersTab());
 		MaterialTab mineTab = new MaterialTab("Mine", tabGroup, buildMineTab());
 		createTab = new MaterialTab("Create", tabGroup, createPanel);
 		MaterialTab postsTab = new MaterialTab("Posts", tabGroup, postsPanel);
+		MaterialTab requestsTab = new MaterialTab("Reqs", tabGroup, buildRequestsTab());
 		MaterialTab statsTab = new MaterialTab("Stats", tabGroup, metricsPanel);
 		tabGroup.addTab(ordersTab);
 		tabGroup.addTab(mineTab);
 		tabGroup.addTab(createTab);
 		tabGroup.addTab(postsTab);
+		tabGroup.addTab(requestsTab);
 		tabGroup.addTab(statsTab);
 		// MaterialTabGroup defaults to FlowLayout, which wraps overflowing tabs
 		// onto an invisible second row at 225px. One row of 5 makes the labels
@@ -112,6 +120,41 @@ public class GieliDashPanel extends PluginPanel
 
 		tab.add(mineList, BorderLayout.NORTH);
 		return tab;
+	}
+
+	private JPanel buildRequestsTab()
+	{
+		JPanel tab = new JPanel(new BorderLayout());
+		tab.setOpaque(false);
+
+		requestsList.setLayout(new DynamicGridLayout(0, 1, 0, 6));
+		requestsList.setOpaque(false);
+
+		emptyRequests.setContent("No incoming requests",
+			"When a requester picks you from the Posts tab, their order lands here first.");
+		requestsList.add(emptyRequests);
+
+		tab.add(requestsList, BorderLayout.NORTH);
+		return tab;
+	}
+
+	/** Swing EDT only. */
+	public void setRequests(List<Order> orders)
+	{
+		requestsList.removeAll();
+		if (orders.isEmpty())
+		{
+			requestsList.add(emptyRequests);
+		}
+		else
+		{
+			for (Order order : orders)
+			{
+				requestsList.add(new OrderBox(order, itemManager, plugin::acceptOrder, plugin::declineOrder));
+			}
+		}
+		requestsList.revalidate();
+		requestsList.repaint();
 	}
 
 	/** Swing EDT only. */

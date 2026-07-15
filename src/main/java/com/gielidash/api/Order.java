@@ -48,6 +48,9 @@ public class Order
 	private String dasherName;
 	@SerializedName("dasher_verified")
 	private Integer dasherVerified;
+	/** Dasher this open order is reserved for - /orders/mine only. */
+	@SerializedName("directed_to")
+	private String directedTo;
 	/** "requester" or "dasher" - only present on /orders/mine responses. */
 	private String role;
 	/** Stars I already gave on this order - /orders/mine only, null if unrated. */

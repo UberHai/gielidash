@@ -8,7 +8,6 @@ import javax.swing.JPanel;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.DynamicGridLayout;
 import net.runelite.client.ui.FontManager;
-import net.runelite.client.util.QuantityFormatter;
 
 /**
  * "Stats" tab: lifetime numbers from the server.
@@ -43,12 +42,12 @@ class MetricsPanel extends JPanel
 		rows.add(statRow("Rating", m.getStars() != null
 			? "★" + m.getStars() + " (" + m.getRatingCount() + ")" : "New", ColorScheme.BRAND_ORANGE));
 		rows.add(statRow("Deliveries done", String.valueOf(m.getDeliveriesDone()), null));
-		rows.add(statRow("gp earned", QuantityFormatter.quantityToStackSize(m.getGpEarned()) + " gp",
+		rows.add(statRow("gp earned", Gp.format(m.getGpEarned()) + " gp",
 			ColorScheme.GRAND_EXCHANGE_PRICE));
 		rows.add(statRow("Avg delivery", formatSeconds(m.getAvgDeliverySeconds()), null));
 		rows.add(statRow("Orders posted", String.valueOf(m.getOrdersPosted()), null));
 		rows.add(statRow("Orders received", String.valueOf(m.getOrdersReceived()), null));
-		rows.add(statRow("gp spent on fees", QuantityFormatter.quantityToStackSize(m.getGpSpent()) + " gp",
+		rows.add(statRow("gp spent on fees", Gp.format(m.getGpSpent()) + " gp",
 			ColorScheme.GRAND_EXCHANGE_ALCH));
 		rows.revalidate();
 		rows.repaint();

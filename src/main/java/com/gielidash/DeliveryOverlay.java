@@ -12,8 +12,8 @@ import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.LineComponent;
+import com.gielidash.ui.Gp;
 import net.runelite.client.ui.overlay.components.TitleComponent;
-import net.runelite.client.util.QuantityFormatter;
 
 class DeliveryOverlay extends OverlayPanel
 {
@@ -61,7 +61,7 @@ class DeliveryOverlay extends OverlayPanel
 
 		panelComponent.getChildren().add(LineComponent.builder()
 			.left("Fee:")
-			.right(QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp")
+			.right(Gp.format(order.getFeeGp()) + " gp")
 			.rightColor(GP_GREEN)
 			.build());
 

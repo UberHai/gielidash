@@ -20,7 +20,6 @@ import net.runelite.client.ui.DynamicGridLayout;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.components.FlatTextField;
 import net.runelite.client.ui.components.IconTextField;
-import net.runelite.client.util.QuantityFormatter;
 import net.runelite.http.api.item.ItemPrice;
 
 /**
@@ -48,6 +47,8 @@ class CreateOrderPanel extends JPanel
 	private final FlatTextField feeField = new FlatTextField();
 	private final JLabel estimateLabel = new JLabel(" ");
 	private final JLabel statusLabel = new JLabel(" ");
+	private final JLabel directedLabel = new JLabel(" ");
+	private String directedTo;
 
 	CreateOrderPanel(GieliDashPlugin plugin, ItemManager itemManager)
 	{
@@ -100,6 +101,21 @@ class CreateOrderPanel extends JPanel
 		estimateLabel.setFont(FontManager.getRunescapeSmallFont());
 		estimateLabel.setForeground(ColorScheme.GRAND_EXCHANGE_ALCH);
 		add(estimateLabel);
+
+		// "Order now" on a dasher's post routes the order to them first
+		directedLabel.setFont(FontManager.getRunescapeSmallFont());
+		directedLabel.setForeground(ColorScheme.BRAND_ORANGE);
+		directedLabel.setToolTipText("Click to clear and post to the public board instead");
+		directedLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		directedLabel.addMouseListener(new MouseAdapter()
+		{
+			@Override
+			public void mouseClicked(MouseEvent e)
+			{
+				setDirectedTo(null);
+			}
+		});
+		add(directedLabel);
 
 		add(smallLabel("Delivery fee (gp)"));
 		feeField.setBackground(ColorScheme.DARKER_GRAY_COLOR);
@@ -237,7 +253,7 @@ class CreateOrderPanel extends JPanel
 		itemManager.getImage(result.getId()).addTo(name);
 		row.add(name, BorderLayout.CENTER);
 
-		JLabel price = new JLabel(QuantityFormatter.quantityToStackSize(result.getPrice()) + " gp");
+		JLabel price = new JLabel(Gp.format(result.getPrice()) + " gp");
 		price.setFont(FontManager.getRunescapeSmallFont());
 		price.setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
 		row.add(price, BorderLayout.EAST);
@@ -313,7 +329,7 @@ class CreateOrderPanel extends JPanel
 			basketList.add(row);
 		}
 		estimateLabel.setText(basket.isEmpty() ? " "
-			: "Items: ~" + QuantityFormatter.quantityToStackSize(estimate) + " gp (GE)");
+			: "Items: ~" + Gp.format(estimate) + " gp (GE)");
 		basketList.revalidate();
 		basketList.repaint();
 	}
@@ -343,6 +359,13 @@ class CreateOrderPanel extends JPanel
 	{
 		basket.remove(index);
 		rebuildBasket();
+	}
+
+	/** Route the next posted order to a specific dasher (or null to clear). */
+	void setDirectedTo(String dasherName)
+	{
+		directedTo = dasherName;
+		directedLabel.setText(dasherName == null ? " " : "Directing to: " + dasherName + "  ✕");
 	}
 
 	/** Refill the basket from a past order (Reorder). Prices computed on the client thread. */
@@ -388,7 +411,7 @@ class CreateOrderPanel extends JPanel
 		}
 
 		setStatus("Posting order...", false);
-		plugin.createOrderAtMyLocation(new ArrayList<>(basket), fee, result ->
+		plugin.createOrderAtMyLocation(new ArrayList<>(basket), fee, directedTo, result ->
 			SwingUtilities.invokeLater(() ->
 			{
 				if (result.startsWith("#"))
@@ -397,6 +420,7 @@ class CreateOrderPanel extends JPanel
 					feeField.setText("");
 					rebuildBasket();
 					setStatus("Order " + result + " posted", false);
+					setDirectedTo(null);
 				}
 				else
 				{

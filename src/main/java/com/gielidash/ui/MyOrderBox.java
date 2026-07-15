@@ -13,7 +13,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
-import net.runelite.client.util.QuantityFormatter;
 
 /**
  * A card in the Mine tab: my order, its status, and the next action for my role.
@@ -71,14 +70,16 @@ class MyOrderBox extends JPanel
 			? "for " + check + order.getRequesterName() + " " + counterpartStars
 			: (order.getDasherName() != null
 				? "dasher: " + check + order.getDasherName() + " " + counterpartStars
-				: "waiting for a dasher");
+				: (order.getDirectedTo() != null
+					? "waiting for " + order.getDirectedTo() + " to accept"
+					: "waiting for a dasher"));
 		JLabel who = new JLabel(counterpart);
 		who.setFont(FontManager.getRunescapeSmallFont());
 		who.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		body.add(who);
 
 		JLabel meta = new JLabel("W" + order.getWorld()
-			+ "  ·  " + QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp fee");
+			+ "  ·  " + Gp.format(order.getFeeGp()) + " gp fee");
 		meta.setFont(FontManager.getRunescapeSmallFont());
 		meta.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		body.add(meta);

@@ -207,6 +207,7 @@ public class GieliDashPlugin extends Plugin
 		{
 			List<Order> open = api.getOpenOrders();
 			List<Order> mine = api.getMyOrders();
+			List<Order> requests = api.getRequests();
 			List<com.gielidash.api.DasherPost> posts = api.getPosts();
 			com.gielidash.api.Metrics metrics = api.getMetrics();
 
@@ -218,14 +219,17 @@ public class GieliDashPlugin extends Plugin
 			// THEN hand everything to Swing
 			clientThread.invokeLater(() ->
 			{
-				for (Order order : open)
+				for (List<Order> list : List.of(open, requests))
 				{
-					long cost = 0;
-					for (OrderItem item : order.getItems())
+					for (Order order : list)
 					{
-						cost += (long) itemManager.getItemPrice(item.getId()) * item.getQty();
+						long cost = 0;
+						for (OrderItem item : order.getItems())
+						{
+							cost += (long) itemManager.getItemPrice(item.getId()) * item.getQty();
+						}
+						order.setFrontCostGp(cost);
 					}
-					order.setFrontCostGp(cost);
 				}
 				SwingUtilities.invokeLater(() ->
 				{
@@ -233,9 +237,12 @@ public class GieliDashPlugin extends Plugin
 					{
 						panel.setOrders(open);
 						panel.setMyOrders(mine);
+						panel.setRequests(requests);
 						panel.setPosts(posts);
 						panel.setMetrics(metrics);
-						panel.setSyncStatus(open.size() + " open");
+						panel.setSyncStatus(requests.isEmpty()
+							? open.size() + " open"
+							: requests.size() + (requests.size() == 1 ? " request!" : " requests!"));
 					}
 				});
 			});
@@ -278,6 +285,12 @@ public class GieliDashPlugin extends Plugin
 	public void acceptOrder(Order order)
 	{
 		runApi("accept", () -> api.acceptOrder(order.getId()));
+	}
+
+	/** Called from the Requests tab (EDT). Sends the order to the public board. */
+	public void declineOrder(Order order)
+	{
+		runApi("decline", () -> api.declineOrder(order.getId()));
 	}
 
 	/** Called from the Mine tab (EDT). */
@@ -360,13 +373,14 @@ public class GieliDashPlugin extends Plugin
 	 * thread, then posts the order off it. Callback receives "#<id>" on success
 	 * or a user-facing error message.
 	 */
-	public void createOrderAtMyLocation(List<OrderItem> items, long feeGp, Consumer<String> callback)
+	public void createOrderAtMyLocation(List<OrderItem> items, long feeGp,
+		@Nullable String directedTo, Consumer<String> callback)
 	{
 		clientThread.invokeLater(() ->
 		{
 			if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null)
 			{
-				callback.accept("Log in first - the order needs your location");
+				callback.accept("Log in first");
 				return;
 			}
 			WorldPoint location = client.getLocalPlayer().getWorldLocation();
@@ -377,7 +391,7 @@ public class GieliDashPlugin extends Plugin
 				try
 				{
 					int id = api.createOrder(items, location.getX(), location.getY(),
-						location.getPlane(), world, feeGp, null);
+						location.getPlane(), world, feeGp, null, directedTo);
 					callback.accept("#" + id);
 					pollOrders();
 				}

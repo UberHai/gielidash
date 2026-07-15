@@ -21,17 +21,17 @@ import net.runelite.client.ui.components.PluginErrorPanel;
 public class PostsPanel extends JPanel
 {
 	private final GieliDashPlugin plugin;
-	private final Runnable jumpToCreate;
+	private final java.util.function.Consumer<String> orderFromDasher;
 	private final JPanel postsList = new JPanel();
 	private final PluginErrorPanel emptyPosts = new PluginErrorPanel();
 	private final FlatTextField messageField = new FlatTextField();
 	private final FlatTextField feeField = new FlatTextField();
 	private final JLabel statusLabel = new JLabel(" ");
 
-	PostsPanel(GieliDashPlugin plugin, Runnable jumpToCreate)
+	PostsPanel(GieliDashPlugin plugin, java.util.function.Consumer<String> orderFromDasher)
 	{
 		this.plugin = plugin;
-		this.jumpToCreate = jumpToCreate;
+		this.orderFromDasher = orderFromDasher;
 
 		setLayout(new DynamicGridLayout(0, 1, 0, 5));
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -142,8 +142,8 @@ public class PostsPanel extends JPanel
 		}
 		if (!post.mine())
 		{
-			// This Dasher is online right now - jump straight to posting an order
-			JButton order = actionButton("Order now", () -> jumpToCreate.run());
+			// This Dasher is online right now - route an order directly to them
+			JButton order = actionButton("Order now", () -> orderFromDasher.accept(post.getDasherName()));
 			south.add(order, BorderLayout.EAST);
 		}
 		box.add(south, BorderLayout.SOUTH);

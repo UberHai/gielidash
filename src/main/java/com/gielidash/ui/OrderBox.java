@@ -17,7 +17,6 @@ import javax.swing.SwingConstants;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
-import net.runelite.client.util.QuantityFormatter;
 
 /**
  * One order card in the sidebar list, styled after Loot Tracker boxes.
@@ -28,6 +27,12 @@ class OrderBox extends JPanel
 
 	OrderBox(Order order, ItemManager itemManager, Consumer<Order> onAccept)
 	{
+		this(order, itemManager, onAccept, null);
+	}
+
+	/** With onDecline non-null this renders as an incoming request (Accept + Decline). */
+	OrderBox(Order order, ItemManager itemManager, Consumer<Order> onAccept, Consumer<Order> onDecline)
+	{
 		setLayout(new BorderLayout(0, 1));
 		setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		setBorder(BorderFactory.createEmptyBorder(6, 8, 8, 8));
@@ -35,7 +40,7 @@ class OrderBox extends JPanel
 		// Header: fee (green) left, world right
 		JPanel header = new JPanel(new BorderLayout());
 		header.setOpaque(false);
-		JLabel fee = new JLabel(QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp");
+		JLabel fee = new JLabel(Gp.format(order.getFeeGp()) + " gp");
 		fee.setFont(FontManager.getRunescapeBoldFont());
 		fee.setForeground(GP_GREEN);
 		JLabel world = new JLabel("W" + order.getWorld());
@@ -68,14 +73,14 @@ class OrderBox extends JPanel
 		if (order.getFrontCostGp() != null)
 		{
 			long collect = order.getFrontCostGp() + order.getFeeGp();
-			JLabel cost = new JLabel("Front ~" + QuantityFormatter.quantityToStackSize(order.getFrontCostGp())
-				+ " gp · collect ~" + QuantityFormatter.quantityToStackSize(collect) + " gp");
+			JLabel cost = new JLabel("Front ~" + Gp.format(order.getFrontCostGp())
+				+ " gp · collect ~" + Gp.format(collect) + " gp");
 			cost.setFont(FontManager.getRunescapeSmallFont());
 			cost.setForeground(ColorScheme.GRAND_EXCHANGE_ALCH);
 			cost.setToolTipText("You buy the items (~"
-				+ QuantityFormatter.quantityToStackSize(order.getFrontCostGp())
+				+ Gp.format(order.getFrontCostGp())
 				+ " gp), the requester pays items + "
-				+ QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp fee on delivery");
+				+ Gp.format(order.getFeeGp()) + " gp fee on delivery");
 			body.add(cost);
 		}
 
@@ -87,29 +92,46 @@ class OrderBox extends JPanel
 		body.add(requester);
 		add(body, BorderLayout.CENTER);
 
-		// Accept button - a plugin-panel action, never a game action
-		JButton accept = new JButton("Accept order");
-		accept.setFont(FontManager.getRunescapeSmallFont());
-		accept.setFocusPainted(false);
-		accept.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
-		accept.setForeground(ColorScheme.BRAND_ORANGE);
-		accept.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
-		accept.setHorizontalAlignment(SwingConstants.CENTER);
-		accept.addActionListener(e -> onAccept.accept(order));
-		accept.addMouseListener(new MouseAdapter()
+		// Accept (and for requests, Decline) - plugin-panel actions, never game actions
+		JButton accept = bottomButton("Accept order", ColorScheme.BRAND_ORANGE, () -> onAccept.accept(order));
+		if (onDecline == null)
+		{
+			add(accept, BorderLayout.SOUTH);
+		}
+		else
+		{
+			JPanel buttons = new JPanel(new java.awt.GridLayout(1, 2, 6, 0));
+			buttons.setOpaque(false);
+			buttons.add(accept);
+			buttons.add(bottomButton("Decline", ColorScheme.LIGHT_GRAY_COLOR, () -> onDecline.accept(order)));
+			add(buttons, BorderLayout.SOUTH);
+		}
+	}
+
+	private static JButton bottomButton(String text, Color fg, Runnable action)
+	{
+		JButton button = new JButton(text);
+		button.setFont(FontManager.getRunescapeSmallFont());
+		button.setFocusPainted(false);
+		button.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
+		button.setForeground(fg);
+		button.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
+		button.setHorizontalAlignment(SwingConstants.CENTER);
+		button.addActionListener(e -> action.run());
+		button.addMouseListener(new MouseAdapter()
 		{
 			@Override
 			public void mouseEntered(MouseEvent e)
 			{
-				accept.setBackground(ColorScheme.MEDIUM_GRAY_COLOR);
+				button.setBackground(ColorScheme.MEDIUM_GRAY_COLOR);
 			}
 
 			@Override
 			public void mouseExited(MouseEvent e)
 			{
-				accept.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
+				button.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
 			}
 		});
-		add(accept, BorderLayout.SOUTH);
+		return button;
 	}
 }
