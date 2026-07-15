@@ -25,13 +25,9 @@ class OrderBox extends JPanel
 {
 	private static final Color GP_GREEN = ColorScheme.GRAND_EXCHANGE_PRICE;
 
-	OrderBox(Order order, ItemManager itemManager, Consumer<Order> onAccept)
-	{
-		this(order, itemManager, onAccept, null);
-	}
-
 	/** With onDecline non-null this renders as an incoming request (Accept + Decline). */
-	OrderBox(Order order, ItemManager itemManager, Consumer<Order> onAccept, Consumer<Order> onDecline)
+	OrderBox(Order order, ItemManager itemManager, Consumer<Order> onAccept, Consumer<Order> onDecline,
+		com.gielidash.GieliDashPlugin plugin)
 	{
 		setLayout(new BorderLayout(0, 1));
 		setBackground(ColorScheme.DARKER_GRAY_COLOR);
@@ -84,11 +80,32 @@ class OrderBox extends JPanel
 			body.add(cost);
 		}
 
+		// Distance + profitability, when the order is on my world
+		if (order.getDistanceTiles() != null)
+		{
+			JLabel travel = new JLabel(order.getDistanceTiles() + " tiles away · "
+				+ Gp.format(order.gpPerTile()) + " gp/tile");
+			travel.setFont(FontManager.getRunescapeSmallFont());
+			travel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+			body.add(travel);
+		}
+
 		String check = order.getRequesterVerified() != null && order.getRequesterVerified() == 1 ? "✓ " : "";
 		JLabel requester = new JLabel(check + order.getRequesterName() + "  ·  Cb " + order.getRequesterCombat()
 			+ "  ·  " + Stars.format(order.getRequesterStars(), order.getRequesterRatingCount()));
 		requester.setFont(FontManager.getRunescapeSmallFont());
 		requester.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		requester.setToolTipText("Click for " + order.getRequesterName() + "'s profile");
+		requester.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+		requester.addMouseListener(new MouseAdapter()
+		{
+			@Override
+			public void mouseClicked(MouseEvent e)
+			{
+				plugin.fetchProfile(order.getRequesterName(),
+					profile -> ProfilePopup.show(requester, profile));
+			}
+		});
 		body.add(requester);
 		add(body, BorderLayout.CENTER);
 

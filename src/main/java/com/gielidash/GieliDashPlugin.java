@@ -93,6 +93,9 @@ public class GieliDashPlugin extends Plugin
 	@Inject
 	private net.runelite.client.game.WorldService worldService;
 
+	@Inject
+	private net.runelite.client.Notifier notifier;
+
 	private GieliDashPanel panel;
 	private NavigationButton navButton;
 	private BufferedImage pinIcon;
@@ -115,6 +118,10 @@ public class GieliDashPlugin extends Plugin
 
 	/** Cached on GameTick for off-thread total-world checks. */
 	private volatile int myTotalLevel;
+
+	/** Previous poll snapshots for event notifications. */
+	private Map<Integer, Order> prevMine;
+	private java.util.Set<Integer> prevRequestIds;
 
 	private WorldMapPoint mapPoint;
 	private WorldMapPoint counterpartPoint;
@@ -139,6 +146,9 @@ public class GieliDashPlugin extends Plugin
 		clientToolbar.addNavigation(navButton);
 		overlayManager.add(deliveryOverlay);
 		eventBus.register(tradeObserver);
+
+		prevMine = null;
+		prevRequestIds = null;
 
 		// Covers install / plugin re-enable while already logged in
 		if (config.enableSync())
@@ -235,7 +245,8 @@ public class GieliDashPlugin extends Plugin
 			List<com.gielidash.api.DasherPost> posts = s.posts;
 			com.gielidash.api.Metrics metrics = s.metrics;
 
-			// Skill-total worlds: flag (requests) or hide (board) what I can't enter
+			// Skill-total worlds: flag (requests) or hide (board) what I can't enter,
+			// plus the configured risk filters (front cost / verified / min ratings)
 			int total = myTotalLevel;
 			int hidden = 0;
 			List<Order> open = new java.util.ArrayList<>();
@@ -251,6 +262,19 @@ public class GieliDashPlugin extends Plugin
 					}
 					order.setLockedRequirement(required);
 				}
+				if (config.verifiedRequestersOnly()
+					&& (order.getRequesterVerified() == null || order.getRequesterVerified() != 1))
+				{
+					hidden++;
+					continue;
+				}
+				if (config.minRequesterRatings() > 0
+					&& (order.getRequesterRatingCount() == null
+						|| order.getRequesterRatingCount() < config.minRequesterRatings()))
+				{
+					hidden++;
+					continue;
+				}
 				open.add(order);
 			}
 			for (Order request : requests)
@@ -261,6 +285,7 @@ public class GieliDashPlugin extends Plugin
 					request.setLockedRequirement(required);
 				}
 			}
+			notifyChanges(mine, requests);
 			final int hiddenCount = hidden;
 
 			Order next = mine.stream().filter(Order::isActive).findFirst().orElse(null);
@@ -271,6 +296,8 @@ public class GieliDashPlugin extends Plugin
 			// THEN hand everything to Swing
 			clientThread.invokeLater(() ->
 			{
+				WorldPoint me = lastLocation;
+				int myWorld = lastWorld;
 				for (List<Order> list : List.of(open, requests))
 				{
 					for (Order order : list)
@@ -281,6 +308,11 @@ public class GieliDashPlugin extends Plugin
 							cost += (long) itemManager.getItemPrice(item.getId()) * item.getQty();
 						}
 						order.setFrontCostGp(cost);
+						if (me != null && order.getWorld() == myWorld)
+						{
+							order.setDistanceTiles(me.distanceTo2D(
+								new WorldPoint(order.getDestX(), order.getDestY(), order.getDestPlane())));
+						}
 					}
 				}
 				SwingUtilities.invokeLater(() ->
@@ -331,6 +363,85 @@ public class GieliDashPlugin extends Plugin
 		{
 			log.debug("Heartbeat failed: {}", e.getMessage());
 		}
+	}
+
+	/** Diff this poll against the last one and fire notifications. Any thread. */
+	private void notifyChanges(List<Order> mine, List<Order> requests)
+	{
+		Map<Integer, Order> mineNow = new HashMap<>();
+		for (Order order : mine)
+		{
+			mineNow.put(order.getId(), order);
+		}
+		java.util.Set<Integer> requestIdsNow = new java.util.HashSet<>();
+		for (Order request : requests)
+		{
+			requestIdsNow.add(request.getId());
+		}
+
+		boolean ready = prevMine != null && prevRequestIds != null;
+		if (ready && config.notifyEvents())
+		{
+			for (Order request : requests)
+			{
+				if (!prevRequestIds.contains(request.getId()))
+				{
+					notifier.notify("GieliDash: new request from " + request.getRequesterName()
+						+ " (" + com.gielidash.ui.Gp.format(request.getFeeGp()) + " gp)");
+				}
+			}
+			for (Order now : mine)
+			{
+				Order before = prevMine.get(now.getId());
+				if (before == null || !"requester".equals(now.getRole()))
+				{
+					continue;
+				}
+				if ("open".equals(before.getStatus()) && "claimed".equals(now.getStatus()))
+				{
+					notifier.notify("GieliDash: " + now.getDasherName() + " accepted your order #" + now.getId());
+				}
+				else if (!"arrived".equals(before.getStatus()) && "arrived".equals(now.getStatus()))
+				{
+					notifier.notify("GieliDash: your dasher has arrived (order #" + now.getId() + ")");
+				}
+				else if (!"delivered".equals(before.getStatus()) && "delivered".equals(now.getStatus()))
+				{
+					notifier.notify("GieliDash: order #" + now.getId() + " delivered");
+				}
+				else if ("open".equals(now.getStatus())
+					&& before.getDirectedTo() != null && now.getDirectedTo() == null)
+				{
+					notifier.notify("GieliDash: " + before.getDirectedTo()
+						+ " declined - order #" + now.getId() + " is now public");
+				}
+			}
+		}
+		prevMine = mineNow;
+		prevRequestIds = requestIdsNow;
+	}
+
+	/** Fetch a player's profile off-thread, hand it to the EDT. Called from cards. */
+	public void fetchProfile(String displayName, Consumer<com.gielidash.api.Profile> callback)
+	{
+		executor.execute(() ->
+		{
+			try
+			{
+				com.gielidash.api.Profile profile = api.getProfile(displayName);
+				SwingUtilities.invokeLater(() -> callback.accept(profile));
+			}
+			catch (ApiException e)
+			{
+				log.debug("Profile fetch failed for {}: {}", displayName, e.getMessage());
+			}
+		});
+	}
+
+	/** Panel-side world access for the "My world" filter (EDT-safe). */
+	public int getCurrentWorld()
+	{
+		return lastWorld;
 	}
 
 	/** Called from the panel (EDT). Claims an order off-thread, then refreshes. */

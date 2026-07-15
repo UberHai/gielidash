@@ -56,6 +56,50 @@ public interface GieliDashConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "notifyEvents",
+		name = "Notifications",
+		description = "Notify (per your RuneLite notification settings) on new requests, accepts, arrivals, deliveries and declines.",
+		position = 4
+	)
+	default boolean notifyEvents()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "maxFrontCost",
+		name = "Max front cost (gp)",
+		description = "Hide orders whose item cost exceeds what you're willing to front as a Dasher. 0 = no limit.",
+		position = 5
+	)
+	default int maxFrontCost()
+	{
+		return 0;
+	}
+
+	@ConfigItem(
+		keyName = "verifiedRequestersOnly",
+		name = "Verified requesters only",
+		description = "Hide orders from requesters who aren't hiscores-verified.",
+		position = 6
+	)
+	default boolean verifiedRequestersOnly()
+	{
+		return false;
+	}
+
+	@ConfigItem(
+		keyName = "minRequesterRatings",
+		name = "Min requester ratings",
+		description = "Hide orders from requesters with fewer than this many ratings. 0 = show everyone.",
+		position = 7
+	)
+	default int minRequesterRatings()
+	{
+		return 0;
+	}
+
+	@ConfigItem(
 		keyName = "baseUrlOverride",
 		name = "Server URL override",
 		description = "Point the plugin at a self-hosted GieliDash server. Leave blank for the official one.",

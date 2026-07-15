@@ -71,6 +71,14 @@ public class Order
 	/** Set when this order's world needs more total level than I have (e.g. 1500). */
 	private transient Integer lockedRequirement;
 
+	/** Straight-line tiles from me to the destination (same-world only), set during polls. */
+	private transient Integer distanceTiles;
+
+	public long gpPerTile()
+	{
+		return distanceTiles == null ? -1 : feeGp / Math.max(distanceTiles, 1);
+	}
+
 	public boolean isTerminal()
 	{
 		return "delivered".equals(status) || "failed".equals(status) || "cancelled".equals(status);

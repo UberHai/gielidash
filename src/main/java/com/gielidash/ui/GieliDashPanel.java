@@ -35,6 +35,9 @@ public class GieliDashPanel extends PluginPanel
 	private MetricsPanel metricsPanel;
 	private MaterialTabGroup tabGroup;
 	private MaterialTab createTab;
+	private javax.swing.JComboBox<String> sortCombo;
+	private javax.swing.JCheckBox myWorldBox;
+	private List<Order> lastOpen = java.util.List.of();
 
 	public GieliDashPanel(GieliDashPlugin plugin, ItemManager itemManager)
 	{
@@ -95,6 +98,26 @@ public class GieliDashPanel extends PluginPanel
 		JPanel tab = new JPanel(new BorderLayout());
 		tab.setOpaque(false);
 
+		// Sort + filter controls
+		sortCombo = new javax.swing.JComboBox<>(new String[]{"Newest", "Highest fee", "Closest", "gp / tile"});
+		sortCombo.setFont(FontManager.getRunescapeSmallFont());
+		sortCombo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		sortCombo.setForeground(ColorScheme.TEXT_COLOR);
+		sortCombo.setFocusable(false);
+		sortCombo.addActionListener(e -> renderOrders());
+
+		myWorldBox = new javax.swing.JCheckBox("My world");
+		myWorldBox.setFont(FontManager.getRunescapeSmallFont());
+		myWorldBox.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		myWorldBox.setOpaque(false);
+		myWorldBox.setFocusPainted(false);
+		myWorldBox.addActionListener(e -> renderOrders());
+
+		JPanel controls = new JPanel(new BorderLayout(6, 0));
+		controls.setOpaque(false);
+		controls.add(sortCombo, BorderLayout.CENTER);
+		controls.add(myWorldBox, BorderLayout.EAST);
+
 		ordersList.setLayout(new DynamicGridLayout(0, 1, 0, 6));
 		ordersList.setOpaque(false);
 
@@ -102,8 +125,52 @@ public class GieliDashPanel extends PluginPanel
 			"Orders posted by requesters will show up here. Pull to refresh happens automatically.");
 		ordersList.add(emptyOrders);
 
-		tab.add(ordersList, BorderLayout.NORTH);
+		JPanel column = new JPanel(new DynamicGridLayout(0, 1, 0, 6));
+		column.setOpaque(false);
+		column.add(controls);
+		column.add(ordersList);
+		tab.add(column, BorderLayout.NORTH);
 		return tab;
+	}
+
+	/** Re-sort and re-render the cached board per the current controls. Swing EDT only. */
+	private void renderOrders()
+	{
+		List<Order> view = new java.util.ArrayList<>(lastOpen);
+		if (myWorldBox.isSelected())
+		{
+			view.removeIf(o -> o.getWorld() != plugin.getCurrentWorld());
+		}
+		switch ((String) sortCombo.getSelectedItem())
+		{
+			case "Highest fee":
+				view.sort(java.util.Comparator.comparingLong(Order::getFeeGp).reversed());
+				break;
+			case "Closest":
+				view.sort(java.util.Comparator.comparingInt(
+					o -> o.getDistanceTiles() == null ? Integer.MAX_VALUE : o.getDistanceTiles()));
+				break;
+			case "gp / tile":
+				view.sort(java.util.Comparator.comparingLong(Order::gpPerTile).reversed());
+				break;
+			default: // Newest - server order
+				break;
+		}
+
+		ordersList.removeAll();
+		if (view.isEmpty())
+		{
+			ordersList.add(emptyOrders);
+		}
+		else
+		{
+			for (Order order : view)
+			{
+				ordersList.add(new OrderBox(order, itemManager, plugin::acceptOrder, null, plugin));
+			}
+		}
+		ordersList.revalidate();
+		ordersList.repaint();
 	}
 
 	private JPanel buildMineTab()
@@ -150,7 +217,7 @@ public class GieliDashPanel extends PluginPanel
 		{
 			for (Order order : orders)
 			{
-				requestsList.add(new OrderBox(order, itemManager, plugin::acceptOrder, plugin::declineOrder));
+				requestsList.add(new OrderBox(order, itemManager, plugin::acceptOrder, plugin::declineOrder, plugin));
 			}
 		}
 		requestsList.revalidate();
@@ -179,20 +246,8 @@ public class GieliDashPanel extends PluginPanel
 	/** Swing EDT only. */
 	public void setOrders(List<Order> orders)
 	{
-		ordersList.removeAll();
-		if (orders.isEmpty())
-		{
-			ordersList.add(emptyOrders);
-		}
-		else
-		{
-			for (Order order : orders)
-			{
-				ordersList.add(new OrderBox(order, itemManager, plugin::acceptOrder));
-			}
-		}
-		ordersList.revalidate();
-		ordersList.repaint();
+		lastOpen = orders;
+		renderOrders();
 	}
 
 	/** Swing EDT only. */

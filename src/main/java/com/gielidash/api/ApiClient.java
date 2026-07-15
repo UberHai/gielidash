@@ -117,6 +117,25 @@ public class ApiClient
 		return get("/sync", SyncResponse.class);
 	}
 
+	public Profile getProfile(String displayName)
+	{
+		String encoded;
+		try
+		{
+			encoded = java.net.URLEncoder.encode(displayName, "UTF-8");
+		}
+		catch (java.io.UnsupportedEncodingException e)
+		{
+			throw new ApiException("encoding_error", e);
+		}
+		return get("/profiles?name=" + encoded, ProfileResponse.class).profile;
+	}
+
+	private static class ProfileResponse extends SimpleResponse
+	{
+		Profile profile;
+	}
+
 	public static class SyncResponse extends SimpleResponse
 	{
 		public List<Order> orders;

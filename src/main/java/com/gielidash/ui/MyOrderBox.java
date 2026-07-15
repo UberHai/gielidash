@@ -76,6 +76,20 @@ class MyOrderBox extends JPanel
 		JLabel who = new JLabel(counterpart);
 		who.setFont(FontManager.getRunescapeSmallFont());
 		who.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		String counterpartName = isDasher ? order.getRequesterName() : order.getDasherName();
+		if (counterpartName != null)
+		{
+			who.setToolTipText("Click for " + counterpartName + "'s profile");
+			who.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+			who.addMouseListener(new java.awt.event.MouseAdapter()
+			{
+				@Override
+				public void mouseClicked(java.awt.event.MouseEvent e)
+				{
+					plugin.fetchProfile(counterpartName, profile -> ProfilePopup.show(who, profile));
+				}
+			});
+		}
 		body.add(who);
 
 		JLabel meta = new JLabel("W" + order.getWorld()

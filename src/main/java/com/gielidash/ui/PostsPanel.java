@@ -124,6 +124,19 @@ public class PostsPanel extends JPanel
 			+ "  ·  " + Stars.format(post.getStars(), post.getRatingCount()));
 		who.setFont(FontManager.getRunescapeSmallFont());
 		who.setForeground(post.mine() ? ColorScheme.BRAND_ORANGE : ColorScheme.LIGHT_GRAY_COLOR);
+		if (!post.mine())
+		{
+			who.setToolTipText("Click for " + post.getDasherName() + "'s profile");
+			who.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+			who.addMouseListener(new java.awt.event.MouseAdapter()
+			{
+				@Override
+				public void mouseClicked(java.awt.event.MouseEvent e)
+				{
+					plugin.fetchProfile(post.getDasherName(), profile -> ProfilePopup.show(who, profile));
+				}
+			});
+		}
 		box.add(who, BorderLayout.NORTH);
 
 		JLabel message = new JLabel("<html>" + post.getMessage() + "</html>");
