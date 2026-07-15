@@ -99,7 +99,7 @@ public class GieliDashPanel extends PluginPanel
 		tab.setOpaque(false);
 
 		// Sort + filter controls
-		sortCombo = new javax.swing.JComboBox<>(new String[]{"Newest", "Highest fee", "Closest", "gp / tile"});
+		sortCombo = new javax.swing.JComboBox<>(new String[]{"Newest", "Highest fee", "Closest"});
 		sortCombo.setFont(FontManager.getRunescapeSmallFont());
 		sortCombo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		sortCombo.setForeground(ColorScheme.TEXT_COLOR);
@@ -149,9 +149,6 @@ public class GieliDashPanel extends PluginPanel
 			case "Closest":
 				view.sort(java.util.Comparator.comparingInt(
 					o -> o.getDistanceTiles() == null ? Integer.MAX_VALUE : o.getDistanceTiles()));
-				break;
-			case "gp / tile":
-				view.sort(java.util.Comparator.comparingLong(Order::gpPerTile).reversed());
 				break;
 			default: // Newest - server order
 				break;
