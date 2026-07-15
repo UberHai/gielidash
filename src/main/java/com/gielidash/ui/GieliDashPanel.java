@@ -59,7 +59,7 @@ public class GieliDashPanel extends PluginPanel
 		tabGroup = new MaterialTabGroup(display);
 
 		createPanel = new CreateOrderPanel(plugin, itemManager);
-		postsPanel = new PostsPanel(plugin);
+		postsPanel = new PostsPanel(plugin, () -> tabGroup.select(createTab));
 		metricsPanel = new MetricsPanel();
 		MaterialTab ordersTab = new MaterialTab("Orders", tabGroup, buildOrdersTab());
 		MaterialTab mineTab = new MaterialTab("Mine", tabGroup, buildMineTab());

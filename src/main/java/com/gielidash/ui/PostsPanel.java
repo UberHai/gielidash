@@ -21,32 +21,40 @@ import net.runelite.client.ui.components.PluginErrorPanel;
 public class PostsPanel extends JPanel
 {
 	private final GieliDashPlugin plugin;
+	private final Runnable jumpToCreate;
 	private final JPanel postsList = new JPanel();
 	private final PluginErrorPanel emptyPosts = new PluginErrorPanel();
 	private final FlatTextField messageField = new FlatTextField();
 	private final FlatTextField feeField = new FlatTextField();
 	private final JLabel statusLabel = new JLabel(" ");
 
-	PostsPanel(GieliDashPlugin plugin)
+	PostsPanel(GieliDashPlugin plugin, Runnable jumpToCreate)
 	{
 		this.plugin = plugin;
+		this.jumpToCreate = jumpToCreate;
 
 		setLayout(new DynamicGridLayout(0, 1, 0, 5));
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
 		setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
 
 		// Composer
-		add(smallLabel("Advertise as a Dasher"));
+		JLabel header = new JLabel("Advertise as a Dasher");
+		header.setFont(FontManager.getRunescapeBoldFont());
+		header.setForeground(ColorScheme.BRAND_ORANGE);
+		add(header);
+
+		add(smallLabel("What you deliver (and where)"));
 		messageField.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		messageField.setPreferredSize(new Dimension(0, 30));
 		messageField.getTextField().setFont(FontManager.getRunescapeSmallFont());
-		messageField.getTextField().setToolTipText("What you deliver and where, e.g. 'Food + potions, anywhere in Kandarin'");
+		messageField.getTextField().setToolTipText("e.g. 'Food + potions, anywhere in Kandarin'");
 		add(messageField);
 
+		add(smallLabel("Your rate"));
 		feeField.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		feeField.setPreferredSize(new Dimension(0, 30));
 		feeField.getTextField().setFont(FontManager.getRunescapeSmallFont());
-		feeField.getTextField().setToolTipText("Your rate, e.g. '50k base + 10k per region'");
+		feeField.getTextField().setToolTipText("e.g. '50k base + 10k per region'");
 		add(feeField);
 
 		JPanel buttons = new JPanel(new DynamicGridLayout(1, 2, 6, 0));
@@ -123,13 +131,22 @@ public class PostsPanel extends JPanel
 		message.setForeground(ColorScheme.TEXT_COLOR);
 		box.add(message, BorderLayout.CENTER);
 
+		JPanel south = new JPanel(new BorderLayout());
+		south.setOpaque(false);
 		if (post.getFeeNote() != null && !post.getFeeNote().isEmpty())
 		{
 			JLabel fee = new JLabel(post.getFeeNote());
 			fee.setFont(FontManager.getRunescapeSmallFont());
 			fee.setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
-			box.add(fee, BorderLayout.SOUTH);
+			south.add(fee, BorderLayout.WEST);
 		}
+		if (!post.mine())
+		{
+			// This Dasher is online right now - jump straight to posting an order
+			JButton order = actionButton("Order now", () -> jumpToCreate.run());
+			south.add(order, BorderLayout.EAST);
+		}
+		box.add(south, BorderLayout.SOUTH);
 		return box;
 	}
 

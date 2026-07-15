@@ -67,10 +67,15 @@ class OrderBox extends JPanel
 		// never call itemManager.getItemPrice from this EDT constructor.
 		if (order.getFrontCostGp() != null)
 		{
+			long collect = order.getFrontCostGp() + order.getFeeGp();
 			JLabel cost = new JLabel("Front ~" + QuantityFormatter.quantityToStackSize(order.getFrontCostGp())
-				+ " gp · earn " + QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp");
+				+ " gp · collect ~" + QuantityFormatter.quantityToStackSize(collect) + " gp");
 			cost.setFont(FontManager.getRunescapeSmallFont());
 			cost.setForeground(ColorScheme.GRAND_EXCHANGE_ALCH);
+			cost.setToolTipText("You buy the items (~"
+				+ QuantityFormatter.quantityToStackSize(order.getFrontCostGp())
+				+ " gp), the requester pays items + "
+				+ QuantityFormatter.quantityToStackSize(order.getFeeGp()) + " gp fee on delivery");
 			body.add(cost);
 		}
 
