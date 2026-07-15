@@ -231,23 +231,24 @@ class MyOrderBox extends JPanel
 		}
 	}
 
+	/** Only the dasher advances the lifecycle - they made the hand-off (user-decided). */
 	private static String nextAction(String status, boolean isDasher)
 	{
-		if (isDasher)
+		if (!isDasher)
 		{
-			switch (status)
-			{
-				case "claimed":
-					return "in_transit";
-				case "in_transit":
-					return "arrived";
-				case "arrived":
-					return "delivered";
-				default:
-					return null;
-			}
+			return null;
 		}
-		return "arrived".equals(status) ? "delivered" : null;
+		switch (status)
+		{
+			case "claimed":
+				return "in_transit";
+			case "in_transit":
+				return "arrived";
+			case "arrived":
+				return "delivered";
+			default:
+				return null;
+		}
 	}
 
 	private static String nextLabel(String next)

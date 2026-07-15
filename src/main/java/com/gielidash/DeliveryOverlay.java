@@ -94,7 +94,39 @@ class DeliveryOverlay extends OverlayPanel
 				}
 			}
 		}
-		else if (order.getCpX() != null && order.getCpY() != null)
+		else
+		{
+			// Requester left the drop-off? The dasher is heading to where the
+			// order was POSTED - warn hard so the hand-off doesn't miss
+			Player local = client.getLocalPlayer();
+			if (local != null)
+			{
+				if (client.getWorld() != order.getWorld())
+				{
+					panelComponent.getChildren().add(LineComponent.builder()
+						.left("WRONG WORLD")
+						.right("Hop to " + order.getWorld())
+						.leftColor(ColorScheme.PROGRESS_ERROR_COLOR)
+						.rightColor(ColorScheme.PROGRESS_ERROR_COLOR)
+						.build());
+				}
+				else
+				{
+					int away = local.getWorldLocation().distanceTo2D(dest);
+					if (away > 12 || local.getWorldLocation().getPlane() != order.getDestPlane())
+					{
+						panelComponent.getChildren().add(LineComponent.builder()
+							.left("RETURN TO DROP-OFF")
+							.right(away + " tiles away")
+							.leftColor(ColorScheme.PROGRESS_ERROR_COLOR)
+							.rightColor(ColorScheme.PROGRESS_ERROR_COLOR)
+							.build());
+					}
+				}
+			}
+		}
+
+		if (!isDasher && order.getCpX() != null && order.getCpY() != null)
 		{
 			// Requester: the Dasher's last reported distance to me
 			WorldPoint dasherAt = new WorldPoint(order.getCpX(), order.getCpY(),
