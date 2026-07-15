@@ -111,6 +111,21 @@ public class ApiClient
 		return get("/metrics", MetricsResponse.class).metrics;
 	}
 
+	/** Everything the panel needs, in one round trip. */
+	public SyncResponse sync()
+	{
+		return get("/sync", SyncResponse.class);
+	}
+
+	public static class SyncResponse extends SimpleResponse
+	{
+		public List<Order> orders;
+		public List<Order> mine;
+		public List<Order> requests;
+		public List<DasherPost> posts;
+		public Metrics metrics;
+	}
+
 	public void createPost(String message, @Nullable String feeNote)
 	{
 		post("/posts", Map.of(

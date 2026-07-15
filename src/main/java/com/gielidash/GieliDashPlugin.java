@@ -187,8 +187,8 @@ public class GieliDashPlugin extends Plugin
 		}
 	}
 
-	/** Poll the order book + my orders while sync is on. */
-	@Schedule(period = 15, unit = ChronoUnit.SECONDS, asynchronous = true)
+	/** Poll everything (one /sync round trip) while sync is on. */
+	@Schedule(period = 8, unit = ChronoUnit.SECONDS, asynchronous = true)
 	public void pollOrders()
 	{
 		if (!config.enableSync() || panel == null)
@@ -205,11 +205,12 @@ public class GieliDashPlugin extends Plugin
 		}
 		try
 		{
-			List<Order> open = api.getOpenOrders();
-			List<Order> mine = api.getMyOrders();
-			List<Order> requests = api.getRequests();
-			List<com.gielidash.api.DasherPost> posts = api.getPosts();
-			com.gielidash.api.Metrics metrics = api.getMetrics();
+			ApiClient.SyncResponse s = api.sync();
+			List<Order> open = s.orders;
+			List<Order> mine = s.mine;
+			List<Order> requests = s.requests;
+			List<com.gielidash.api.DasherPost> posts = s.posts;
+			com.gielidash.api.Metrics metrics = s.metrics;
 
 			Order next = mine.stream().filter(Order::isActive).findFirst().orElse(null);
 			updateActiveOrder(next);
@@ -261,7 +262,7 @@ public class GieliDashPlugin extends Plugin
 	}
 
 	/** Heartbeat my position to the server while I'm on an active order. */
-	@Schedule(period = 5, unit = ChronoUnit.SECONDS, asynchronous = true)
+	@Schedule(period = 3, unit = ChronoUnit.SECONDS, asynchronous = true)
 	public void sendLocationHeartbeat()
 	{
 		Order order = activeOrder;
