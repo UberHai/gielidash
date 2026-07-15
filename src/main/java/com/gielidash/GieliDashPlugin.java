@@ -315,6 +315,23 @@ public class GieliDashPlugin extends Plugin
 						}
 					}
 				}
+
+				// Front-cost risk filter needs the GE costs computed just above
+				int frontHidden = 0;
+				if (config.maxFrontCost() > 0)
+				{
+					java.util.Iterator<Order> it = open.iterator();
+					while (it.hasNext())
+					{
+						Order order = it.next();
+						if (order.getFrontCostGp() != null && order.getFrontCostGp() > config.maxFrontCost())
+						{
+							it.remove();
+							frontHidden++;
+						}
+					}
+				}
+				final int totalHidden = hiddenCount + frontHidden;
 				SwingUtilities.invokeLater(() ->
 				{
 					if (panel != null)
@@ -325,7 +342,7 @@ public class GieliDashPlugin extends Plugin
 						panel.setPosts(posts);
 						panel.setMetrics(metrics);
 						panel.setSyncStatus(requests.isEmpty()
-							? open.size() + " open" + (hiddenCount > 0 ? " · " + hiddenCount + " locked" : "")
+							? open.size() + " open" + (totalHidden > 0 ? " · " + totalHidden + " hidden" : "")
 							: requests.size() + (requests.size() == 1 ? " request!" : " requests!"));
 					}
 				});
