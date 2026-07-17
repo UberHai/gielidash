@@ -108,10 +108,21 @@ public class GieliDashPlugin extends Plugin
 	private BufferedImage dasherIcon;
 	private BufferedImage requesterIcon;
 
-	/** The one order currently guiding overlay/pin/route. Read from any thread. */
+	/**
+	 * The PRIMARY active order - oldest accepted first ("finish what you
+	 * started") - gets the full overlay, the Shortest Path route, and the
+	 * counterpart pin. Read from any thread.
+	 */
 	@Getter
 	@Nullable
 	private volatile Order activeOrder;
+
+	/** All active orders (server caps a dasher at 3). Read from any thread. */
+	@Getter
+	private volatile List<Order> activeOrders = List.of();
+
+	/** Poll-diff signature so guidance only rebuilds when something changed. */
+	private volatile String activeSignature = "";
 
 	/** Last known player position, cached on the client thread each tick. */
 	@Getter
@@ -133,7 +144,8 @@ public class GieliDashPlugin extends Plugin
 	private Map<Integer, Order> prevMine;
 	private java.util.Set<Integer> prevRequestIds;
 
-	private WorldMapPoint mapPoint;
+	/** One destination pin per active order. Client thread only. */
+	private final List<WorldMapPoint> destPoints = new java.util.ArrayList<>();
 	private WorldMapPoint counterpartPoint;
 	private boolean routeShown;
 
@@ -177,6 +189,8 @@ public class GieliDashPlugin extends Plugin
 		eventBus.unregister(tradeObserver);
 		clearGuidance();
 		activeOrder = null;
+		activeOrders = List.of();
+		activeSignature = "";
 		navButton = null;
 		panel = null;
 		log.debug("GieliDash stopped");
@@ -327,8 +341,19 @@ public class GieliDashPlugin extends Plugin
 			notifyChanges(mine, requests);
 			final int hiddenCount = hidden;
 
-			Order next = mine.stream().filter(Order::isActive).findFirst().orElse(null);
-			updateActiveOrder(next);
+			// Server sorts newest-first; primary = OLDEST active so queueing more
+			// work never yanks the route away from the delivery in progress
+			List<Order> actives = new java.util.ArrayList<>();
+			for (Order order : mine)
+			{
+				if (order.isActive())
+				{
+					actives.add(order);
+				}
+			}
+			java.util.Collections.reverse(actives);
+			Order next = actives.isEmpty() ? null : actives.get(0);
+			updateActiveOrders(actives, next);
 			updateCounterpartPin(next);
 
 			// Price lookups assert the client thread - compute front costs there,
@@ -402,24 +427,27 @@ public class GieliDashPlugin extends Plugin
 		}
 	}
 
-	/** Heartbeat my position to the server while I'm on an active order. */
+	/** Heartbeat my position to the server for every active order. */
 	@Schedule(period = 3, unit = ChronoUnit.SECONDS, asynchronous = true)
 	public void sendLocationHeartbeat()
 	{
-		Order order = activeOrder;
+		List<Order> orders = activeOrders;
 		WorldPoint location = lastLocation;
-		if (order == null || location == null || !config.enableSync() || !api.hasToken())
+		if (orders.isEmpty() || location == null || !config.enableSync() || !api.hasToken())
 		{
 			return;
 		}
-		try
+		for (Order order : orders)
 		{
-			api.sendLocation(order.getId(), location.getX(), location.getY(),
-				location.getPlane(), lastWorld);
-		}
-		catch (ApiException e)
-		{
-			log.debug("Heartbeat failed: {}", e.getMessage());
+			try
+			{
+				api.sendLocation(order.getId(), location.getX(), location.getY(),
+					location.getPlane(), lastWorld);
+			}
+			catch (ApiException e)
+			{
+				log.debug("Heartbeat failed: {}", e.getMessage());
+			}
 		}
 	}
 
@@ -601,6 +629,26 @@ public class GieliDashPlugin extends Plugin
 	 */
 	public void acceptOrder(Order order)
 	{
+		// Friendly pre-check; the server enforces the same cap atomically
+		long delivering = 0;
+		for (Order active : activeOrders)
+		{
+			if ("dasher".equals(active.getRole()))
+			{
+				delivering++;
+			}
+		}
+		if (delivering >= 3)
+		{
+			SwingUtilities.invokeLater(() ->
+			{
+				if (panel != null)
+				{
+					panel.setSyncStatus("max 3 active deliveries");
+				}
+			});
+			return;
+		}
 		clientThread.invokeLater(() ->
 		{
 			int eta = 480;
@@ -780,45 +828,56 @@ public class GieliDashPlugin extends Plugin
 		});
 	}
 
-	/** Reconcile overlay/map-pin/route state with the current active order. Any thread. */
-	private void updateActiveOrder(@Nullable Order next)
+	/** Reconcile overlay/map-pin/route state with the current active orders. Any thread. */
+	private void updateActiveOrders(List<Order> actives, @Nullable Order primary)
 	{
-		Order previous = activeOrder;
-		activeOrder = next;
+		activeOrder = primary;
+		activeOrders = List.copyOf(actives);
 
-		boolean changed = (previous == null) != (next == null)
-			|| (previous != null && next != null
-				&& (previous.getId() != next.getId() || !previous.getStatus().equals(next.getStatus())));
-		if (!changed)
+		// Rebuild guidance only when the set, order, or a status changed
+		StringBuilder sig = new StringBuilder();
+		for (Order order : actives)
+		{
+			sig.append(order.getId()).append(':').append(order.getStatus()).append(';');
+		}
+		String signature = sig.toString();
+		if (signature.equals(activeSignature))
 		{
 			return;
 		}
+		activeSignature = signature;
 
 		clientThread.invokeLater(() ->
 		{
 			clearGuidance();
-			if (next == null)
+			if (primary == null)
 			{
 				return;
 			}
 
-			WorldPoint dest = new WorldPoint(next.getDestX(), next.getDestY(), next.getDestPlane());
+			// A destination pin for EVERY active order; the queue is visible on
+			// the map without touching the single-order experience
+			for (Order order : actives)
+			{
+				WorldMapPoint pin = WorldMapPoint.builder()
+					.worldPoint(new WorldPoint(order.getDestX(), order.getDestY(), order.getDestPlane()))
+					.image(pinIcon)
+					.tooltip("GieliDash delivery #" + order.getId()
+						+ (order.getId() == primary.getId() || actives.size() == 1 ? "" : " (queued)"))
+					.jumpOnClick(true)
+					.snapToEdge(true)
+					.name("GieliDash")
+					.build();
+				destPoints.add(pin);
+				worldMapPointManager.add(pin);
+			}
 
-			mapPoint = WorldMapPoint.builder()
-				.worldPoint(dest)
-				.image(pinIcon)
-				.tooltip("GieliDash delivery #" + next.getId())
-				.jumpOnClick(true)
-				.snapToEdge(true)
-				.name("GieliDash")
-				.build();
-			worldMapPointManager.add(mapPoint);
-
-			// Only route the Dasher - the requester is being delivered to
-			if (config.useShortestPath() && "dasher".equals(next.getRole()))
+			// Only route the Dasher - the requester is being delivered to -
+			// and only to the primary destination (Shortest Path draws one path)
+			if (config.useShortestPath() && "dasher".equals(primary.getRole()))
 			{
 				Map<String, Object> data = new HashMap<>();
-				data.put("target", dest);
+				data.put("target", new WorldPoint(primary.getDestX(), primary.getDestY(), primary.getDestPlane()));
 				eventBus.post(new PluginMessage(SHORTEST_PATH_NAMESPACE, "path", data));
 				routeShown = true;
 			}
@@ -856,11 +915,11 @@ public class GieliDashPlugin extends Plugin
 	/** Client thread only. */
 	private void clearGuidance()
 	{
-		if (mapPoint != null)
+		for (WorldMapPoint pin : destPoints)
 		{
-			worldMapPointManager.remove(mapPoint);
-			mapPoint = null;
+			worldMapPointManager.remove(pin);
 		}
+		destPoints.clear();
 		if (counterpartPoint != null)
 		{
 			worldMapPointManager.remove(counterpartPoint);

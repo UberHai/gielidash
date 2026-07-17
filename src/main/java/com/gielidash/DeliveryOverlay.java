@@ -165,6 +165,32 @@ class DeliveryOverlay extends OverlayPanel
 				.build());
 		}
 
+		// Queued orders (multi-order): one compact line each, primary untouched
+		java.util.List<Order> actives = plugin.getActiveOrders();
+		if (actives.size() > 1)
+		{
+			Player local = client.getLocalPlayer();
+			for (Order queued : actives)
+			{
+				if (queued.getId() == order.getId())
+				{
+					continue;
+				}
+				String right = Gp.format(queued.getFeeGp()) + " gp";
+				if (local != null && client.getWorld() == queued.getWorld())
+				{
+					right += " · " + local.getWorldLocation().distanceTo2D(new WorldPoint(
+						queued.getDestX(), queued.getDestY(), queued.getDestPlane())) + "t";
+				}
+				panelComponent.getChildren().add(LineComponent.builder()
+					.left("Queued #" + queued.getId() + ":")
+					.leftColor(ColorScheme.LIGHT_GRAY_COLOR)
+					.right(right)
+					.rightColor(ColorScheme.LIGHT_GRAY_COLOR)
+					.build());
+			}
+		}
+
 		return super.render(graphics);
 	}
 
