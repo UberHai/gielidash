@@ -15,6 +15,7 @@ public interface GieliDashConfig extends Config
 		description = "Connect to the GieliDash server to post and browse delivery orders.<br>"
 			+ "WARNING: When enabled, your account hash, display name, location, and<br>"
 			+ "self-reported stats (levels, quest points, unlocks) are sent to the GieliDash server.",
+		warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
 		position = 0
 	)
 	default boolean enableSync()

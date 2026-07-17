@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
-import net.runelite.api.ItemID;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.Player;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.events.ChatMessage;
@@ -133,13 +133,13 @@ class TradeObserver
 		}
 
 		long gp = offer.stream()
-			.filter(item -> item.getId() == ItemID.COINS_995)
+			.filter(item -> item.getId() == ItemID.COINS)
 			.mapToLong(OrderItem::getQty)
 			.sum();
 		List<OrderItem> items = new ArrayList<>();
 		for (OrderItem item : offer)
 		{
-			if (item.getId() != ItemID.COINS_995)
+			if (item.getId() != ItemID.COINS)
 			{
 				items.add(item);
 			}
