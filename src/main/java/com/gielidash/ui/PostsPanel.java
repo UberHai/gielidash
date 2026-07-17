@@ -168,7 +168,9 @@ public class PostsPanel extends JPanel
 		String location = locationLine(post);
 		if (location != null)
 		{
-			JLabel where = new JLabel(location);
+			// <html> wraps instead of clipping at the 225px panel width
+			// (live-test finding - long hub names overflowed the card)
+			JLabel where = new JLabel("<html>" + location + "</html>");
 			where.setFont(FontManager.getRunescapeSmallFont());
 			where.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 			lines.add(where);
