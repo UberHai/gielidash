@@ -39,6 +39,15 @@ public class DasherPost
 	private int isMine;
 	@SerializedName("created_at")
 	private String createdAt;
+	/** Where the dasher stood when the ad posted - coords only, named client-side. */
+	@SerializedName("posted_x")
+	private Integer postedX;
+	@SerializedName("posted_y")
+	private Integer postedY;
+	@SerializedName("posted_plane")
+	private Integer postedPlane;
+	@SerializedName("posted_world")
+	private Integer postedWorld;
 
 	public boolean mine()
 	{

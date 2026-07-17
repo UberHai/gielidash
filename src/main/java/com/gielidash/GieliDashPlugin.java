@@ -114,9 +114,13 @@ public class GieliDashPlugin extends Plugin
 	private volatile Order activeOrder;
 
 	/** Last known player position, cached on the client thread each tick. */
+	@Getter
 	@Nullable
 	private volatile WorldPoint lastLocation;
 	private volatile int lastWorld;
+
+	/** Board tab fetch throttle (30s) - the tab refetches on every select. */
+	private volatile long lastLeaderboardFetch;
 
 	/** For panel-side guards (EDT can't touch Client). */
 	@Getter
@@ -191,11 +195,24 @@ public class GieliDashPlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (GieliDashConfig.GROUP.equals(event.getGroup())
-			&& "enableSync".equals(event.getKey())
-			&& config.enableSync())
+		if (!GieliDashConfig.GROUP.equals(event.getGroup()))
+		{
+			return;
+		}
+		if ("enableSync".equals(event.getKey()) && config.enableSync())
 		{
 			sessionService.register();
+		}
+		if ("showLeaderboard".equals(event.getKey()))
+		{
+			boolean show = config.showLeaderboard();
+			SwingUtilities.invokeLater(() ->
+			{
+				if (panel != null)
+				{
+					panel.setLeaderboardVisible(show);
+				}
+			});
 		}
 	}
 
@@ -364,7 +381,7 @@ public class GieliDashPlugin extends Plugin
 						panel.setMyOrders(mine);
 						panel.setRequests(requests);
 						panel.setPosts(posts);
-						panel.setMetrics(metrics);
+						panel.setMetrics(metrics, config.businessStats());
 						panel.setSyncStatus(requests.isEmpty()
 							? open.size() + " open" + (totalHidden > 0 ? " · " + totalHidden + " hidden" : "")
 							: requests.size() + (requests.size() == 1 ? " request!" : " requests!"));
@@ -655,7 +672,45 @@ public class GieliDashPlugin extends Plugin
 	/** Called from the Posts tab (EDT). Structured values only - no free text. */
 	public void createDasherPost(String service, String region, long baseFeeGp)
 	{
-		runApi("post ad", () -> api.createPost(service, region, baseFeeGp));
+		// Stamp where the ad was posted from (readers see "posted from X · N tiles")
+		WorldPoint at = lastLocation;
+		int world = lastWorld;
+		runApi("post ad", () -> api.createPost(service, region, baseFeeGp, at, world));
+	}
+
+	/** For panel construction and toggles (EDT reads). */
+	public boolean leaderboardEnabled()
+	{
+		return config.showLeaderboard();
+	}
+
+	/** Called when the Board tab is selected (EDT). Throttled to one fetch per 30s. */
+	public void fetchLeaderboard()
+	{
+		long now = System.currentTimeMillis();
+		if (now - lastLeaderboardFetch < 30_000 || !api.hasToken())
+		{
+			return;
+		}
+		lastLeaderboardFetch = now;
+		executor.execute(() ->
+		{
+			try
+			{
+				com.gielidash.api.ApiClient.Leaderboard board = api.leaderboard();
+				SwingUtilities.invokeLater(() ->
+				{
+					if (panel != null)
+					{
+						panel.setLeaderboard(board);
+					}
+				});
+			}
+			catch (ApiException e)
+			{
+				log.debug("Leaderboard fetch failed: {}", e.getMessage());
+			}
+		});
 	}
 
 	/** Called from the Posts tab (EDT). */

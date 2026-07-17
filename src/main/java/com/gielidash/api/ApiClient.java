@@ -152,11 +152,44 @@ public class ApiClient
 		public int onlineDashers;
 	}
 
-	public void createPost(String service, String region, long baseFeeGp)
+	public void createPost(String service, String region, long baseFeeGp,
+		@Nullable net.runelite.api.coords.WorldPoint at, int world)
 	{
-		post("/posts", Map.of(
-			"service", service, "region", region, "baseFeeGp", baseFeeGp
-		), SimpleResponse.class, true);
+		Map<String, Object> body = new java.util.HashMap<>(Map.of(
+			"service", service, "region", region, "baseFeeGp", baseFeeGp));
+		if (at != null && world > 0)
+		{
+			// "posted from" stamp: raw coords only, named client-side by readers
+			body.put("x", at.getX());
+			body.put("y", at.getY());
+			body.put("plane", at.getPlane());
+			body.put("world", world);
+		}
+		post("/posts", body, SimpleResponse.class, true);
+	}
+
+	/** Weekly courier rankings + lifetime rating top list (Board tab). */
+	public Leaderboard leaderboard()
+	{
+		return get("/leaderboard", Leaderboard.class);
+	}
+
+	public static class Leaderboard extends SimpleResponse
+	{
+		public List<LeaderboardRow> runs;
+		public List<LeaderboardRow> earned;
+		public List<LeaderboardRow> rated;
+	}
+
+	public static class LeaderboardRow
+	{
+		public String name;
+		public Integer verified;
+		/** Deliveries or gp, depending on the list. */
+		public Long value;
+		/** Rated list only. */
+		public Double stars;
+		public Integer count;
 	}
 
 	public void deactivatePost()

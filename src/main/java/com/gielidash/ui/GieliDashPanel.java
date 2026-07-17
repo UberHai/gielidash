@@ -33,8 +33,12 @@ public class GieliDashPanel extends PluginPanel
 	private PostsPanel postsPanel;
 	private CreateOrderPanel createPanel;
 	private MetricsPanel metricsPanel;
+	private LeaderboardPanel leaderboardPanel;
 	private MaterialTabGroup tabGroup;
 	private MaterialTab createTab;
+	private MaterialTab ordersTab;
+	private MaterialTab boardTab;
+	private boolean boardVisible;
 	private javax.swing.JComboBox<String> sortCombo;
 	private javax.swing.JCheckBox myWorldBox;
 	private List<Order> lastOpen = java.util.List.of();
@@ -71,18 +75,30 @@ public class GieliDashPanel extends PluginPanel
 			tabGroup.select(createTab);
 		});
 		metricsPanel = new MetricsPanel();
-		MaterialTab ordersTab = new MaterialTab("Orders", tabGroup, buildOrdersTab());
+		leaderboardPanel = new LeaderboardPanel(plugin);
+		ordersTab = new MaterialTab("Orders", tabGroup, buildOrdersTab());
 		MaterialTab mineTab = new MaterialTab("Mine", tabGroup, buildMineTab());
 		createTab = new MaterialTab("Create", tabGroup, createPanel);
 		MaterialTab postsTab = new MaterialTab("Posts", tabGroup, postsPanel);
 		MaterialTab requestsTab = new MaterialTab("Reqs", tabGroup, buildRequestsTab());
 		MaterialTab statsTab = new MaterialTab("Stats", tabGroup, metricsPanel);
+		boardTab = new MaterialTab("Board", tabGroup, leaderboardPanel);
+		boardTab.setOnSelectEvent(() ->
+		{
+			plugin.fetchLeaderboard();
+			return true;
+		});
 		tabGroup.addTab(ordersTab);
 		tabGroup.addTab(mineTab);
 		tabGroup.addTab(createTab);
 		tabGroup.addTab(postsTab);
 		tabGroup.addTab(requestsTab);
 		tabGroup.addTab(statsTab);
+		// Board is registered so select() knows it, but only rendered when the
+		// config toggle is on (grid goes 3+3 -> 3+3+1)
+		tabGroup.addTab(boardTab);
+		boardVisible = true;
+		setLeaderboardVisible(plugin.leaderboardEnabled());
 		// MaterialTabGroup defaults to FlowLayout, which wraps overflowing tabs
 		// onto an invisible second row at 225px. One row of 5 makes the labels
 		// unreadable - two rows of three keeps them full-width and legible
@@ -275,9 +291,39 @@ public class GieliDashPanel extends PluginPanel
 	}
 
 	/** Swing EDT only. */
-	public void setMetrics(com.gielidash.api.Metrics metrics)
+	public void setMetrics(com.gielidash.api.Metrics metrics, boolean businessStats)
 	{
-		metricsPanel.setMetrics(metrics);
+		metricsPanel.setMetrics(metrics, businessStats);
+	}
+
+	/** Swing EDT only. */
+	public void setLeaderboard(com.gielidash.api.ApiClient.Leaderboard board)
+	{
+		leaderboardPanel.setLeaderboard(board);
+	}
+
+	/** Swing EDT only. Show/hide the config-gated Board tab. */
+	public void setLeaderboardVisible(boolean show)
+	{
+		if (show == boardVisible)
+		{
+			return;
+		}
+		boardVisible = show;
+		if (show)
+		{
+			tabGroup.add(boardTab);
+		}
+		else
+		{
+			if (boardTab.isSelected())
+			{
+				tabGroup.select(ordersTab);
+			}
+			tabGroup.remove(boardTab);
+		}
+		tabGroup.revalidate();
+		tabGroup.repaint();
 	}
 
 	/** Swing EDT only. Refill the Create basket from a past order and jump to it. */

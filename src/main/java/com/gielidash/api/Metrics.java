@@ -11,6 +11,8 @@ public class Metrics
 	private long gpEarned;
 	private long gpSpent;
 	private Integer avgDeliverySeconds;
+	/** Lifetime accept-to-delivered time as a dasher, for gp/active-hour. */
+	private long activeSeconds;
 	private Double stars;
 	private int ratingCount;
 }

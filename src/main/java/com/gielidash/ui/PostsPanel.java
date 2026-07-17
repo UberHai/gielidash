@@ -158,11 +158,22 @@ public class PostsPanel extends JPanel
 		}
 		box.add(who, BorderLayout.NORTH);
 
+		JPanel lines = new JPanel(new DynamicGridLayout(0, 1, 0, 2));
+		lines.setOpaque(false);
 		JLabel message = new JLabel(post.getMessage()
 			+ (post.getRegion() != null ? " · " + post.getRegion() : ""));
 		message.setFont(FontManager.getRunescapeSmallFont());
 		message.setForeground(ColorScheme.TEXT_COLOR);
-		box.add(message, BorderLayout.CENTER);
+		lines.add(message);
+		String location = locationLine(post);
+		if (location != null)
+		{
+			JLabel where = new JLabel(location);
+			where.setFont(FontManager.getRunescapeSmallFont());
+			where.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+			lines.add(where);
+		}
+		box.add(lines, BorderLayout.CENTER);
 
 		JPanel south = new JPanel(new BorderLayout());
 		south.setOpaque(false);
@@ -192,6 +203,46 @@ public class PostsPanel extends JPanel
 		}
 		box.add(south, BorderLayout.SOUTH);
 		return box;
+	}
+
+	/**
+	 * "posted from Varrock · 132 tiles from you" - area named CLIENT-side from
+	 * raw coords (the server never sends place text), distance from my last
+	 * cached position. Null when the post has no stamp.
+	 */
+	private String locationLine(DasherPost post)
+	{
+		if (post.getPostedX() == null || post.getPostedY() == null)
+		{
+			return null;
+		}
+		String area = AreaNames.nearest(post.getPostedX(), post.getPostedY());
+		net.runelite.api.coords.WorldPoint me = plugin.getLastLocation();
+		Integer tiles = null;
+		if (me != null)
+		{
+			int dist = Math.max(Math.abs(me.getX() - post.getPostedX()),
+				Math.abs(me.getY() - post.getPostedY()));
+			// Cross-realm offsets (dungeons at y+6400 etc.) make the number junk
+			if (dist <= 5000)
+			{
+				tiles = dist;
+			}
+		}
+		if (area == null && tiles == null)
+		{
+			return null;
+		}
+		StringBuilder line = new StringBuilder("posted");
+		if (area != null)
+		{
+			line.append(" from ").append(area);
+		}
+		if (tiles != null)
+		{
+			line.append(area != null ? " · " : " ").append(tiles).append(" tiles from you");
+		}
+		return line.toString();
 	}
 
 	private JLabel smallLabel(String text)

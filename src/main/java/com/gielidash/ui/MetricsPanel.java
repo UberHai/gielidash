@@ -36,7 +36,7 @@ class MetricsPanel extends JPanel
 	}
 
 	/** Swing EDT only. */
-	void setMetrics(Metrics m)
+	void setMetrics(Metrics m, boolean businessStats)
 	{
 		rows.removeAll();
 		rows.add(statRow("Rating", m.getStars() != null
@@ -45,6 +45,15 @@ class MetricsPanel extends JPanel
 		rows.add(statRow("gp earned", Gp.format(m.getGpEarned()) + " gp",
 			ColorScheme.GRAND_EXCHANGE_PRICE));
 		rows.add(statRow("Avg delivery", formatSeconds(m.getAvgDeliverySeconds()), null));
+		if (businessStats && m.getActiveSeconds() > 0)
+		{
+			// gp per hour ACTUALLY delivering (accept -> delivered), idle never counts
+			rows.add(statRow("Active time",
+				formatSeconds((int) Math.min(m.getActiveSeconds(), Integer.MAX_VALUE)), null));
+			long gpPerHour = Math.round(m.getGpEarned() * 3600.0 / m.getActiveSeconds());
+			rows.add(statRow("gp / active hour", Gp.format(gpPerHour) + " gp",
+				ColorScheme.GRAND_EXCHANGE_PRICE));
+		}
 		rows.add(statRow("Orders posted", String.valueOf(m.getOrdersPosted()), null));
 		rows.add(statRow("Orders received", String.valueOf(m.getOrdersReceived()), null));
 		rows.add(statRow("gp spent on fees", Gp.format(m.getGpSpent()) + " gp",

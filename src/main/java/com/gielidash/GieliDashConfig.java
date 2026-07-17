@@ -100,10 +100,33 @@ public interface GieliDashConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "showLeaderboard",
+		name = "Leaderboard tab",
+		description = "Add a Board tab with weekly courier rankings (most deliveries, most gp earned, best rated).",
+		position = 8
+	)
+	default boolean showLeaderboard()
+	{
+		return false;
+	}
+
+	@ConfigItem(
+		keyName = "businessStats",
+		name = "Business stats",
+		description = "Show pro-Dasher numbers on the Stats tab: total active delivery time and gp per active hour.<br>"
+			+ "Active time only counts accept-to-delivered, never idle time.",
+		position = 9
+	)
+	default boolean businessStats()
+	{
+		return false;
+	}
+
+	@ConfigItem(
 		keyName = "baseUrlOverride",
 		name = "Server URL override",
 		description = "Point the plugin at a self-hosted GieliDash server. Leave blank for the official one.",
-		position = 3
+		position = 10
 	)
 	default String baseUrlOverride()
 	{
