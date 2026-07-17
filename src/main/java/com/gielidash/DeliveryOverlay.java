@@ -200,48 +200,52 @@ class DeliveryOverlay extends OverlayPanel
 		return super.render(graphics);
 	}
 
+	/** Every phase after the current one, in lifecycle order. */
+	private static final String[] PHASES = {"claimed", "in_transit", "arrived", "delivered"};
+
 	/**
-	 * Right-click the overlay to advance the delivery - no tab hunting mid-run
-	 * (user feedback). Dasher only; rebuilt only when the order/status changes.
+	 * Shift-right-click the overlay to advance the delivery - no tab hunting
+	 * mid-run (user feedback). ALL later phases are offered; a click on a
+	 * later one chains through the steps in between. Dasher only; rebuilt
+	 * only when the order/status changes.
 	 */
 	private void syncMenu(@Nullable Order order)
 	{
-		String next = order != null && "dasher".equals(order.getRole())
-			? nextAction(order.getStatus())
-			: null;
-		String key = next == null ? "" : order.getId() + ":" + next;
+		int at = order != null && "dasher".equals(order.getRole())
+			? phaseIndex(order.getStatus())
+			: -1;
+		String key = at < 0 || at >= PHASES.length - 1 ? "" : order.getId() + ":" + order.getStatus();
 		if (key.equals(menuKey))
 		{
 			return;
 		}
 		menuKey = key;
 		getMenuEntries().clear();
-		if (next == null)
+		if (key.isEmpty())
 		{
 			return;
 		}
 		final Order target = order;
-		final String newStatus = next;
-		addMenuEntry(net.runelite.api.MenuAction.RUNELITE_OVERLAY, nextLabel(next),
-			"GieliDash delivery #" + order.getId(),
-			e -> plugin.updateOrderStatus(target, newStatus));
+		// Add in reverse so the game menu lists the nearest phase on top
+		for (int i = PHASES.length - 1; i > at; i--)
+		{
+			final String phase = PHASES[i];
+			addMenuEntry(net.runelite.api.MenuAction.RUNELITE_OVERLAY, nextLabel(phase),
+				"GieliDash delivery #" + order.getId(),
+				e -> plugin.advanceOrderTo(target, phase));
+		}
 	}
 
-	/** Dasher-only lifecycle (user-decided); mirrors the Mine tab buttons. */
-	@Nullable
-	private static String nextAction(String status)
+	private static int phaseIndex(String status)
 	{
-		switch (status)
+		for (int i = 0; i < PHASES.length; i++)
 		{
-			case "claimed":
-				return "in_transit";
-			case "in_transit":
-				return "arrived";
-			case "arrived":
-				return "delivered";
-			default:
-				return null;
+			if (PHASES[i].equals(status))
+			{
+				return i;
+			}
 		}
+		return -1;
 	}
 
 	private static String nextLabel(String next)
