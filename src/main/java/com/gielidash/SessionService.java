@@ -4,7 +4,6 @@ import com.gielidash.api.ApiClient;
 import com.gielidash.api.ApiException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -27,19 +26,25 @@ public class SessionService
 
 	private final Client client;
 	private final ClientThread clientThread;
-	private final ScheduledExecutorService executor;
 	private final ApiClient api;
+
+	/** The plugin's own API thread - never the shared client executor. */
+	private volatile java.util.concurrent.Executor executor;
 
 	private volatile long lastHelloAt;
 
 	@Inject
-	private SessionService(Client client, ClientThread clientThread,
-		ScheduledExecutorService executor, ApiClient api)
+	private SessionService(Client client, ClientThread clientThread, ApiClient api)
 	{
 		this.client = client;
 		this.clientThread = clientThread;
-		this.executor = executor;
 		this.api = api;
+	}
+
+	/** Wired by the plugin in startUp, before any register() can fire. */
+	void setExecutor(java.util.concurrent.Executor executor)
+	{
+		this.executor = executor;
 	}
 
 	/** Call after LOGGED_IN. Reads game state on the client thread, POSTs off it. */
@@ -80,7 +85,12 @@ public class SessionService
 			unlocks.put("lunarSpells", isFinished(Quest.LUNAR_DIPLOMACY));
 			vetting.put("unlocks", unlocks);
 
-			executor.execute(() ->
+			java.util.concurrent.Executor apiThread = executor;
+			if (apiThread == null)
+			{
+				return;
+			}
+			apiThread.execute(() ->
 			{
 				try
 				{

@@ -11,7 +11,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -66,8 +65,12 @@ public class GieliDashPlugin extends Plugin
 	@Inject
 	private ItemManager itemManager;
 
-	@Inject
-	private ScheduledExecutorService executor;
+	/**
+	 * Our own thread for BLOCKING HTTP. The injected ScheduledExecutorService
+	 * is a single thread shared by the whole client (it drives every plugin's
+	 * scheduled tasks) - a slow GieliDash response must never stall it.
+	 */
+	private java.util.concurrent.ExecutorService executor;
 
 	@Inject
 	private ApiClient api;
@@ -152,6 +155,10 @@ public class GieliDashPlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception
 	{
+		executor = java.util.concurrent.Executors.newSingleThreadExecutor(
+			r -> new Thread(r, "GieliDash-api"));
+		sessionService.setExecutor(executor);
+		tradeObserver.setExecutor(executor);
 		panel = new GieliDashPanel(this, itemManager);
 		pinIcon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		// Map-icon language: brand red-orange = destination, green = the moving
@@ -191,6 +198,7 @@ public class GieliDashPlugin extends Plugin
 		activeOrder = null;
 		activeOrders = List.of();
 		activeSignature = "";
+		executor.shutdownNow();
 		navButton = null;
 		panel = null;
 		log.debug("GieliDash stopped");
@@ -274,9 +282,32 @@ public class GieliDashPlugin extends Plugin
 		return m.find() ? Integer.parseInt(m.group(1)) : 0;
 	}
 
-	/** Poll everything (one /sync round trip) while sync is on. */
+	/** Collapses queued polls so a slow server can't pile up tasks. */
+	private final java.util.concurrent.atomic.AtomicBoolean pollQueued =
+		new java.util.concurrent.atomic.AtomicBoolean();
+
+	/**
+	 * Poll trigger - the schedule fires on the SHARED client executor, so the
+	 * blocking work is handed straight to our own thread.
+	 */
 	@Schedule(period = 8, unit = ChronoUnit.SECONDS, asynchronous = true)
 	public void pollOrders()
+	{
+		java.util.concurrent.ExecutorService apiThread = executor;
+		if (apiThread == null || apiThread.isShutdown()
+			|| !pollQueued.compareAndSet(false, true))
+		{
+			return;
+		}
+		apiThread.execute(() ->
+		{
+			pollQueued.set(false);
+			pollOrdersNow();
+		});
+	}
+
+	/** Blocking. GieliDash-api thread only. */
+	private void pollOrdersNow()
 	{
 		if (!config.enableSync() || panel == null)
 		{
@@ -427,6 +458,9 @@ public class GieliDashPlugin extends Plugin
 		}
 	}
 
+	private final java.util.concurrent.atomic.AtomicBoolean heartbeatQueued =
+		new java.util.concurrent.atomic.AtomicBoolean();
+
 	/** Heartbeat my position to the server for every active order. */
 	@Schedule(period = 3, unit = ChronoUnit.SECONDS, asynchronous = true)
 	public void sendLocationHeartbeat()
@@ -437,18 +471,28 @@ public class GieliDashPlugin extends Plugin
 		{
 			return;
 		}
-		for (Order order : orders)
+		java.util.concurrent.ExecutorService apiThread = executor;
+		if (apiThread == null || apiThread.isShutdown()
+			|| !heartbeatQueued.compareAndSet(false, true))
 		{
-			try
-			{
-				api.sendLocation(order.getId(), location.getX(), location.getY(),
-					location.getPlane(), lastWorld);
-			}
-			catch (ApiException e)
-			{
-				log.debug("Heartbeat failed: {}", e.getMessage());
-			}
+			return;
 		}
+		apiThread.execute(() ->
+		{
+			heartbeatQueued.set(false);
+			for (Order order : orders)
+			{
+				try
+				{
+					api.sendLocation(order.getId(), location.getX(), location.getY(),
+						location.getPlane(), lastWorld);
+				}
+				catch (ApiException e)
+				{
+					log.debug("Heartbeat failed: {}", e.getMessage());
+				}
+			}
+		});
 	}
 
 	/** Diff this poll against the last one and fire notifications. Any thread. */

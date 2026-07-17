@@ -6,7 +6,6 @@ import com.gielidash.api.Order;
 import com.gielidash.api.OrderItem;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -36,22 +35,28 @@ import net.runelite.client.util.Text;
 class TradeObserver
 {
 	private final Client client;
-	private final ScheduledExecutorService executor;
 	private final ApiClient api;
 	private final GieliDashPlugin plugin;
+
+	/** The plugin's own API thread - never the shared client executor. */
+	private volatile java.util.concurrent.Executor executor;
 
 	@Nullable
 	private volatile String tradePartner;
 	private volatile List<OrderItem> myOffer = new ArrayList<>();
 
 	@Inject
-	private TradeObserver(Client client, ScheduledExecutorService executor,
-		ApiClient api, GieliDashPlugin plugin)
+	private TradeObserver(Client client, ApiClient api, GieliDashPlugin plugin)
 	{
 		this.client = client;
-		this.executor = executor;
 		this.api = api;
 		this.plugin = plugin;
+	}
+
+	/** Wired by the plugin in startUp. */
+	void setExecutor(java.util.concurrent.Executor executor)
+	{
+		this.executor = executor;
 	}
 
 	@Subscribe
@@ -155,7 +160,12 @@ class TradeObserver
 		final int plane = local.getWorldLocation().getPlane();
 		final int world = client.getWorld();
 
-		executor.execute(() ->
+		java.util.concurrent.Executor apiThread = executor;
+		if (apiThread == null)
+		{
+			return;
+		}
+		apiThread.execute(() ->
 		{
 			try
 			{
