@@ -37,6 +37,7 @@ public class GieliDashPanel extends PluginPanel
 	private MaterialTabGroup tabGroup;
 	private MaterialTab createTab;
 	private MaterialTab ordersTab;
+	private MaterialTab mineTab;
 	private MaterialTab boardTab;
 	private boolean boardVisible;
 	private javax.swing.JComboBox<String> sortCombo;
@@ -77,7 +78,7 @@ public class GieliDashPanel extends PluginPanel
 		metricsPanel = new MetricsPanel();
 		leaderboardPanel = new LeaderboardPanel(plugin);
 		ordersTab = new MaterialTab("Orders", tabGroup, buildOrdersTab());
-		MaterialTab mineTab = new MaterialTab("Mine", tabGroup, buildMineTab());
+		mineTab = new MaterialTab("Mine", tabGroup, buildMineTab());
 		createTab = new MaterialTab("Create", tabGroup, createPanel);
 		MaterialTab postsTab = new MaterialTab("Posts", tabGroup, postsPanel);
 		MaterialTab requestsTab = new MaterialTab("Reqs", tabGroup, buildRequestsTab());
@@ -300,6 +301,12 @@ public class GieliDashPanel extends PluginPanel
 	public void setLeaderboard(com.gielidash.api.ApiClient.Leaderboard board)
 	{
 		leaderboardPanel.setLeaderboard(board);
+	}
+
+	/** Swing EDT only. Jump to Mine - where a just-accepted order landed. */
+	public void selectMineTab()
+	{
+		tabGroup.select(mineTab);
 	}
 
 	/** Swing EDT only. Show/hide the config-gated Board tab. */

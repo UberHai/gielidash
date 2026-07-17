@@ -4,6 +4,7 @@ import com.gielidash.api.Order;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.Player;
@@ -33,14 +34,19 @@ class DeliveryOverlay extends OverlayPanel
 		setPosition(OverlayPosition.TOP_LEFT);
 	}
 
+	/** What the right-click menu was last built for, "" when empty. */
+	private String menuKey = "";
+
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
 		Order order = plugin.getActiveOrder();
 		if (order == null || !config.showOverlay())
 		{
+			syncMenu(null);
 			return null;
 		}
+		syncMenu(order);
 
 		boolean isDasher = "dasher".equals(order.getRole());
 		panelComponent.getChildren().add(TitleComponent.builder()
@@ -192,6 +198,65 @@ class DeliveryOverlay extends OverlayPanel
 		}
 
 		return super.render(graphics);
+	}
+
+	/**
+	 * Right-click the overlay to advance the delivery - no tab hunting mid-run
+	 * (user feedback). Dasher only; rebuilt only when the order/status changes.
+	 */
+	private void syncMenu(@Nullable Order order)
+	{
+		String next = order != null && "dasher".equals(order.getRole())
+			? nextAction(order.getStatus())
+			: null;
+		String key = next == null ? "" : order.getId() + ":" + next;
+		if (key.equals(menuKey))
+		{
+			return;
+		}
+		menuKey = key;
+		getMenuEntries().clear();
+		if (next == null)
+		{
+			return;
+		}
+		final Order target = order;
+		final String newStatus = next;
+		addMenuEntry(net.runelite.api.MenuAction.RUNELITE_OVERLAY, nextLabel(next),
+			"GieliDash delivery #" + order.getId(),
+			e -> plugin.updateOrderStatus(target, newStatus));
+	}
+
+	/** Dasher-only lifecycle (user-decided); mirrors the Mine tab buttons. */
+	@Nullable
+	private static String nextAction(String status)
+	{
+		switch (status)
+		{
+			case "claimed":
+				return "in_transit";
+			case "in_transit":
+				return "arrived";
+			case "arrived":
+				return "delivered";
+			default:
+				return null;
+		}
+	}
+
+	private static String nextLabel(String next)
+	{
+		switch (next)
+		{
+			case "in_transit":
+				return "Start delivery";
+			case "arrived":
+				return "I've arrived";
+			case "delivered":
+				return "Mark delivered";
+			default:
+				return next;
+		}
 	}
 
 	private static String statusText(String status)

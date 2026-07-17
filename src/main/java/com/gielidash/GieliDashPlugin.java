@@ -660,7 +660,15 @@ public class GieliDashPlugin extends Plugin
 				eta = Math.max(120, (int) (tiles * 0.3 * 1.5) + 60);
 			}
 			final int commitment = eta;
-			runApi("accept", () -> api.acceptOrder(order.getId(), commitment));
+			// Jump the panel to Mine on success - that's where Start delivery
+			// lives, and the order just vanished from the board (user feedback)
+			runApi("accept", () -> api.acceptOrder(order.getId(), commitment), () ->
+			{
+				if (panel != null)
+				{
+					panel.selectMineTab();
+				}
+			});
 		});
 	}
 
@@ -769,11 +777,21 @@ public class GieliDashPlugin extends Plugin
 
 	private void runApi(String what, Runnable call)
 	{
+		runApi(what, call, null);
+	}
+
+	/** onSuccess runs on the EDT after the call succeeds, before the re-poll. */
+	private void runApi(String what, Runnable call, @Nullable Runnable onSuccess)
+	{
 		executor.execute(() ->
 		{
 			try
 			{
 				call.run();
+				if (onSuccess != null)
+				{
+					SwingUtilities.invokeLater(onSuccess);
+				}
 			}
 			catch (ApiException e)
 			{
