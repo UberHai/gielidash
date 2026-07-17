@@ -691,45 +691,6 @@ public class GieliDashPlugin extends Plugin
 		runApi("status " + newStatus, () -> api.updateStatus(order.getId(), newStatus));
 	}
 
-	/**
-	 * Advance an order to any later phase - the server only accepts sequential
-	 * transitions, so this chains through the intermediate steps. Lets the
-	 * overlay offer "Mark delivered" straight from claimed (user feedback).
-	 */
-	public void advanceOrderTo(Order order, String target)
-	{
-		runApi("status " + target, () ->
-		{
-			String status = order.getStatus();
-			while (!status.equals(target))
-			{
-				String next = nextStatus(status);
-				if (next == null)
-				{
-					break;
-				}
-				api.updateStatus(order.getId(), next);
-				status = next;
-			}
-		});
-	}
-
-	@Nullable
-	private static String nextStatus(String status)
-	{
-		switch (status)
-		{
-			case "claimed":
-				return "in_transit";
-			case "in_transit":
-				return "arrived";
-			case "arrived":
-				return "delivered";
-			default:
-				return null;
-		}
-	}
-
 	/** Called from the Mine tab (EDT). */
 	public void cancelOrder(Order order)
 	{
